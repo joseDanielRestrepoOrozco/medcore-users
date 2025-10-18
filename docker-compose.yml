@@ -1,0 +1,13 @@
+services:
+  users:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: medcore-users
+    image: medcore-users
+    environment:
+      - PORT=3000
+    ports:
+      - '3002:3000'
+    env_file:
+      - .env
