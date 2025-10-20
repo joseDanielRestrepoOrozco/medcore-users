@@ -12,3 +12,35 @@ datasource db {
   provider = "mongodb"
   url      = env("DATABASE_URL")
 }
+
+enum Role {
+  MEDICO
+  ENFERMERA
+  PACIENTE
+  ADMINISTRADOR
+}
+
+enum UserStatus {
+  PENDING
+  ACTIVE
+  INACTIVE
+}
+
+model Users {
+  id                      String     @id @default(auto()) @map("_id") @db.ObjectId
+  email                   String     @unique
+  current_password        String
+  fullname                String
+  role                    Role       @default(PACIENTE)
+  specialization          String? // Especialización médica (solo para médicos)
+  department              String? // Departamento (solo para enfermeras)
+  license_number          String? // Número de licencia médica (solo para médicos)
+  date_of_birth           DateTime
+  age                     Int
+  phone                   String? // Teléfono de contacto
+  status                  UserStatus @default(PENDING)
+  verificationCode        String?
+  verificationCodeExpires DateTime?
+  createdAt               DateTime   @default(now())
+  updatedAt               DateTime   @updatedAt
+}
