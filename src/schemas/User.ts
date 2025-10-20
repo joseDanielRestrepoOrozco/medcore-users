@@ -1,16 +1,5 @@
 import { z } from 'zod';
 
-// Schema para actualizar usuario
-export const updateUserSchema = z.object({
-  fullname: z.string().min(3).max(100).optional(),
-  phone: z.string().min(10).max(20).optional(),
-  specialization: z.string().max(100).optional(),
-  department: z.string().max(100).optional(),
-  license_number: z.string().max(50).optional(),
-  role: z.enum(['MEDICO', 'ENFERMERA', 'PACIENTE', 'ADMINISTRADOR']).optional(),
-  status: z.enum(['PENDING', 'ACTIVE', 'INACTIVE']).optional(),
-});
-
 // Schema para filtros de búsqueda
 export const getUsersFiltersSchema = z.object({
   role: z.enum(['MEDICO', 'ENFERMERA', 'PACIENTE', 'ADMINISTRADOR']).optional(),
@@ -19,5 +8,77 @@ export const getUsersFiltersSchema = z.object({
   limit: z.coerce.number().int().positive().max(100).optional().default(10),
 });
 
-export type UpdateUserInput = z.infer<typeof updateUserSchema>;
-export type GetUsersFilters = z.infer<typeof getUsersFiltersSchema>;
+const nameRegex = /^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$/;
+
+const current_password = z
+  .string()
+  .min(6, { message: 'Debe tener al menos 6 caracteres' })
+  .refine(val => /\d/.test(val), {
+    message: 'Debe contener al menos un número',
+  });
+
+const roleEnumSchema = z.enum([
+  'MEDICO',
+  'ENFERMERA',
+  'PACIENTE',
+  'ADMINISTRADOR',
+]);
+
+const baseUser = z.object({
+  email: z.email(),
+  current_password,
+  fullname: z.string().min(1).regex(nameRegex, { message: 'Nombre inválido' }),
+  phone: z.string().optional(),
+  date_of_birth: z.iso.date(),
+  gender: z.string().optional(),
+  status: z.enum(['PENDING', 'ACTIVE', 'INACTIVE']).default('PENDING'),
+});
+
+export const validateAge = z.number().min(1).max(100);
+
+export const medicoSchema = baseUser.extend({
+  role: z.literal(roleEnumSchema.enum.MEDICO),
+  specialization: z.string(),
+  department: z.string(),
+  license_number: z.string(),
+});
+
+export const enfermeraSchema = baseUser.extend({
+  role: z.literal(roleEnumSchema.enum.ENFERMERA),
+  department: z.string(),
+});
+
+export const pacienteSchema = baseUser.extend({
+  role: z.literal(roleEnumSchema.enum.PACIENTE),
+});
+
+export const administradorSchema = baseUser.extend({
+  role: z.literal(roleEnumSchema.enum.ADMINISTRADOR),
+});
+
+export const userSchema = z.discriminatedUnion('role', [
+  medicoSchema,
+  enfermeraSchema,
+  pacienteSchema,
+  administradorSchema,
+]);
+
+export const medicoUpdateSchema = medicoSchema.partial();
+export const enfermeraUpdateSchema = enfermeraSchema.partial();
+export const pacienteUpdateSchema = pacienteSchema.partial();
+export const administradorUpdateSchema = administradorSchema.partial();
+
+export const usersUpdateSchema = z.discriminatedUnion('role', [
+  medicoUpdateSchema,
+  enfermeraUpdateSchema,
+  pacienteUpdateSchema,
+  administradorUpdateSchema,
+]);
+
+export type User = z.infer<typeof userSchema>;
+
+// parsear el rol y por defecto 'PACIENTE' si no está presente
+export const roleSchema = z
+  .enum(['MEDICO', 'ENFERMERA', 'PACIENTE', 'ADMINISTRADOR'])
+  .default('PACIENTE');
+
