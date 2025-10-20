@@ -1,11 +1,11 @@
 import { type NextFunction, type Request, type Response } from 'express';
 import { PrismaClient, type Users } from '@prisma/client';
-import emailConfig, { generateVerificationCode } from '../config/emailConfig';
-import { parseBuffer } from '../libs/parseFile';
+import emailConfig, { generateVerificationCode } from '../config/emailConfig.js';
+import { parseBuffer } from '../libs/parseFile.js';
 import z from 'zod';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
-import { userSchema, validateAge } from '../schemas/User';
-import calculateAge from '../libs/calculateAge';
+import { userSchema, validateAge } from '../schemas/User.js';
+import calculateAge from '../libs/calculateAge.js';
 import bcrypt from 'bcrypt';
 
 const prisma = new PrismaClient();

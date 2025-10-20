@@ -1,5 +1,5 @@
 import multer from 'multer';
-import { createUploader, createFileFilter } from '../../config/baseMulter';
+import { createUploader, createFileFilter } from '../../config/baseMulter.js';
 
 const MAX_FILE_SIZE = 60 * 1024 * 1024; // 60 MB
 
