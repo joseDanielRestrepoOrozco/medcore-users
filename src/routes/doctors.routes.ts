@@ -1,8 +1,8 @@
 import express from 'express';
 import doctorsController from '../controllers/doctors.controller.js';
 import { requireRoles } from '../middleware/auth.js';
+import unknownEndpoint from '../middleware/unknownEndpoint.js';
 const doctorsRouter = express.Router();
-
 
 // Define your doctors routes here
 doctorsRouter.get(
@@ -33,5 +33,7 @@ doctorsRouter.patch('/status/:id',
   requireRoles(['ADMINISTRADOR']),
   doctorsController.updateStatus
 );
+
+doctorsRouter.use(unknownEndpoint);
 
 export default doctorsRouter;

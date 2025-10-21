@@ -1,6 +1,7 @@
 import express from 'express';
 import nursesController from '../controllers/nurses.controller.js';
 import { requireRoles } from '../middleware/auth.js';
+import unknownEndpoint from '../middleware/unknownEndpoint.js';
 const nursesRouter = express.Router();
 
 // Define your nurses routes here
@@ -27,5 +28,7 @@ nursesRouter.patch(
   requireRoles(['ADMINISTRADOR']),
   nursesController.updateStatus
 );
+
+nursesRouter.use(unknownEndpoint);
 
 export default nursesRouter;

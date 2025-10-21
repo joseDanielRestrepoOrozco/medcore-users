@@ -51,7 +51,6 @@ const baseUser = z.object({
   fullname: z.string().min(1).regex(nameRegex, { message: 'Nombre inválido' }),
   phone: z.string().optional(),
   date_of_birth: z.iso.date(),
-  gender: z.string().optional(),
   status: z.enum(['PENDING', 'ACTIVE', 'INACTIVE']).default('PENDING'),
 });
 
