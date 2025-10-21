@@ -1,9 +1,30 @@
 import { z } from 'zod';
 
-// Schema para filtros de búsqueda
+// Schema para filtros de búsqueda generales (todos los campos opcionales)
 export const getUsersFiltersSchema = z.object({
-  role: z.enum(['MEDICO', 'ENFERMERA', 'PACIENTE', 'ADMINISTRADOR']).optional(),
   status: z.enum(['PENDING', 'ACTIVE', 'INACTIVE']).optional(),
+  page: z.coerce.number().int().positive().optional().default(1),
+  limit: z.coerce.number().int().positive().max(100).optional().default(10),
+});
+
+// Schema para filtros cuando el role es requerido (como en getUsersByRole)
+export const getUsersByRoleFiltersSchema = z.object({
+  role: z.enum(['MEDICO', 'ENFERMERA', 'PACIENTE', 'ADMINISTRADOR']),
+  status: z.enum(['PENDING', 'ACTIVE', 'INACTIVE']).optional(),
+  page: z.coerce.number().int().positive().optional().default(1),
+  limit: z.coerce.number().int().positive().max(100).optional().default(10),
+});
+
+// Schema para filtros de doctores (specialty es opcional)
+export const getDoctorsFiltersSchema = z.object({
+  status: z.enum(['PENDING', 'ACTIVE', 'INACTIVE']).optional(),
+  page: z.coerce.number().int().positive().optional().default(1),
+  limit: z.coerce.number().int().positive().max(100).optional().default(10),
+});
+
+export const getSpecialtyFiltersSchema = z.object({
+  status: z.enum(['PENDING', 'ACTIVE', 'INACTIVE']).optional(),
+  specialty: z.string().optional(),
   page: z.coerce.number().int().positive().optional().default(1),
   limit: z.coerce.number().int().positive().max(100).optional().default(10),
 });
@@ -63,17 +84,16 @@ export const userSchema = z.discriminatedUnion('role', [
   administradorSchema,
 ]);
 
-export const medicoUpdateSchema = medicoSchema.partial();
-export const enfermeraUpdateSchema = enfermeraSchema.partial();
-export const pacienteUpdateSchema = pacienteSchema.partial();
-export const administradorUpdateSchema = administradorSchema.partial();
-
-export const usersUpdateSchema = z.discriminatedUnion('role', [
-  medicoUpdateSchema,
-  enfermeraUpdateSchema,
-  pacienteUpdateSchema,
-  administradorUpdateSchema,
-]);
+export const medicoUpdateSchema = medicoSchema.omit({ status: true }).partial();
+export const enfermeraUpdateSchema = enfermeraSchema
+  .omit({ status: true })
+  .partial();
+export const pacienteUpdateSchema = pacienteSchema
+  .omit({ status: true })
+  .partial();
+export const administradorUpdateSchema = administradorSchema
+  .omit({ status: true })
+  .partial();
 
 export type User = z.infer<typeof userSchema>;
 
@@ -82,3 +102,10 @@ export const roleSchema = z
   .enum(['MEDICO', 'ENFERMERA', 'PACIENTE', 'ADMINISTRADOR'])
   .default('PACIENTE');
 
+export type Role = z.infer<typeof roleSchema>;
+
+export const verifyIdSchema = z.uuid();
+
+export const statusSchema = z.object({
+  status: z.enum(['PENDING', 'ACTIVE', 'INACTIVE']),
+});

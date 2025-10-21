@@ -9,6 +9,8 @@ const errorHandler = (
   _next: NextFunction
 ) => {
   if (error instanceof PrismaClientKnownRequestError) {
+    console.log('aquiiiiii');
+    console.error('[Prisma Error]', error);
     if (error.code === 'P2023') {
       res.status(400).json({ error: 'ID no válido' });
       return;
