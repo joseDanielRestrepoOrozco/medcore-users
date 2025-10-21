@@ -41,11 +41,6 @@ export const authenticateToken = async (
 
     const data = await response.json();
 
-    if (!data.valid || !data.user) {
-      res.status(403).json({ error: 'Invalid token' });
-      return;
-    }
-
     // Agregar usuario al request (rol viene de la BD, no del token)
     req.user = data.user;
     next();
