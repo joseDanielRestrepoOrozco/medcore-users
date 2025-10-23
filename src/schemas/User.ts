@@ -1,19 +1,65 @@
 import { z } from 'zod';
 
 // Schema para filtros de búsqueda generales (todos los campos opcionales)
-export const getUsersFiltersSchema = z.object({
-  status: z.enum(['PENDING', 'ACTIVE', 'INACTIVE']).optional(),
-  page: z.coerce.number().int().positive().optional().default(1),
-  limit: z.coerce.number().int().positive().max(100).optional().default(10),
-});
+export const getUsersFiltersSchema = z
+  .object({
+    status: z.enum(['PENDING', 'ACTIVE', 'INACTIVE']).optional(),
+    q: z.string().optional(),
+    // alias requerido por doc: state=active|inactive
+    state: z
+      .enum(['ACTIVE', 'INACTIVE'])
+      .optional()
+      .or(z.enum(['active', 'inactive']).optional())
+      .optional(),
+    page: z.coerce.number().int().positive().optional().default(1),
+    limit: z.coerce.number().int().positive().max(100).optional().default(10),
+  })
+  .transform((q) => {
+    const out: Record<string, unknown> = { ...q };
+    if (!out.status && out.state) {
+      out.status = String(out.state).toUpperCase();
+    }
+    delete out.state;
+    return out;
+  });
 
 // Schema para filtros cuando el role es requerido (como en getUsersByRole)
-export const getUsersByRoleFiltersSchema = z.object({
-  role: z.enum(['MEDICO', 'ENFERMERA', 'PACIENTE', 'ADMINISTRADOR']),
-  status: z.enum(['PENDING', 'ACTIVE', 'INACTIVE']).optional(),
-  page: z.coerce.number().int().positive().optional().default(1),
-  limit: z.coerce.number().int().positive().max(100).optional().default(10),
-});
+export const getUsersByRoleFiltersSchema = z
+  .object({
+    role: z.string(),
+    q: z.string().optional(),
+    status: z
+      .enum(['PENDING', 'ACTIVE', 'INACTIVE'])
+      .optional()
+      .or(z.enum(['pending', 'active', 'inactive']).optional()),
+    state: z
+      .enum(['ACTIVE', 'INACTIVE'])
+      .optional()
+      .or(z.enum(['active', 'inactive']).optional())
+      .optional(),
+    page: z.coerce.number().int().positive().optional().default(1),
+    limit: z.coerce.number().int().positive().max(100).optional().default(10),
+  })
+  .transform((q) => {
+    const roleMap: Record<string, string> = {
+      DOCTOR: 'MEDICO',
+      MÉDICO: 'MEDICO',
+      MEDICO: 'MEDICO',
+      NURSE: 'ENFERMERA',
+      ENFERMERA: 'ENFERMERA',
+      PATIENT: 'PACIENTE',
+      PACIENTE: 'PACIENTE',
+      ADMIN: 'ADMINISTRADOR',
+      ADMINISTRADOR: 'ADMINISTRADOR',
+    };
+    const out: Record<string, unknown> = { ...q };
+    const upper = String(out.role || '').toUpperCase();
+    out.role = roleMap[upper] ?? upper;
+    if (!out.status && out.state) out.status = String(out.state).toUpperCase();
+    if (out.status) out.status = String(out.status).toUpperCase();
+    delete out.state;
+    return out;
+  });
 
 // Schema para filtros de doctores (specialty es opcional)
 export const getDoctorsFiltersSchema = z.object({
@@ -29,7 +75,8 @@ export const getSpecialtyFiltersSchema = z.object({
   limit: z.coerce.number().int().positive().max(100).optional().default(10),
 });
 
-const nameRegex = /^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$/;
+// Permite letras, espacios y puntuación común en nombres (.,-' )
+const nameRegex = /^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s.'-]+$/;
 
 const current_password = z
   .string()

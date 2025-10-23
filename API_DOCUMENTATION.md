@@ -3,7 +3,7 @@
 ## Base URL
 
 ```
-/api
+/api/v1
 ```
 
 ## Authentication
@@ -351,9 +351,9 @@ Imports multiple users from a CSV file. **Supports all user types: MEDICO, ENFER
 **Content-Type:** `multipart/form-data`
 
 **Form Data:**
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| file | File | Yes | CSV file with user data |
+| Field           | Type | Required | Description                                 |
+|-----------------|------|----------|---------------------------------------------|
+| file \| document | File | Yes      | CSV file with user data (UTF-8/UTF-16 supported) |
 
 **CSV Format for Patients:**
 

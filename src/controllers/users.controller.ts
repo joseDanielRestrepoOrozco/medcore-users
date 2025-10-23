@@ -132,7 +132,15 @@ const create = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    const newUser = pacienteSchema.parse({ ...req.body, role: 'PACIENTE' });
+    // Adaptar nombres alternativos del frontend: currentPassword, dateOfBirth, birthDate
+    const b = req.body as Record<string, unknown>;
+    const adapted = {
+      ...b,
+      role: 'PACIENTE',
+      current_password: b.current_password ?? b.currentPassword,
+      date_of_birth: b.date_of_birth ?? b.dateOfBirth ?? b.birthDate,
+    };
+    const newUser = pacienteSchema.parse(adapted);
     const createdUser = await usersService.createUser(newUser);
 
     res.status(201).json({

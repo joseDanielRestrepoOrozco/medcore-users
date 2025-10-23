@@ -45,7 +45,8 @@ router.get('/stats', requireRoles(['ADMINISTRADOR']), usersController.getStats);
 router.post(
   '/bulkUsers',
   requireRoles(['ADMINISTRADOR']),
-  csvUploadMiddleware.uploadSingle,
+  csvUploadMiddleware.uploadAny,
+  csvUploadMiddleware.ensureSingleFile,
   bulkUsersController.bulkImportPatients
 );
 

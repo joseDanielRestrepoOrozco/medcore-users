@@ -1,4 +1,6 @@
-import { PrismaClient, Role, UserStatus } from '@prisma/client';
+import { PrismaClient, Prisma } from '@prisma/client';
+type Role = Prisma.Role;
+type UserStatus = Prisma.UserStatus;
 import bcrypt from 'bcrypt';
 import calculateAge from '../libs/calculateAge.js';
 import emailConfig from '../config/emailConfig.js';
@@ -26,15 +28,12 @@ export const getAllUsers = async (filters: {
   status?: UserStatus;
   role?: Role;
   specialization?: string;
+  q?: string;
 }) => {
-  const { page, limit, status, role, specialization } = filters;
+  const { page, limit, status, role, specialization, q } = filters;
   const skip = (page - 1) * limit;
 
-  const whereClause: {
-    status?: UserStatus;
-    role?: Role;
-    specialization?: string | undefined;
-  } = {
+  const whereClause: any = {
     status: status as UserStatus | undefined,
     role: role as Role | undefined,
   };
@@ -42,6 +41,16 @@ export const getAllUsers = async (filters: {
   // Filtro de especialización (case-insensitive partial match)
   if (specialization) {
     whereClause.specialization = specialization;
+  }
+
+  if (q && q.trim().length > 0) {
+    const term = q.trim();
+    whereClause.OR = [
+      { fullname: { contains: term, mode: 'insensitive' } },
+      { email: { contains: term, mode: 'insensitive' } },
+      { license_number: { contains: term, mode: 'insensitive' } },
+      { department: { contains: term, mode: 'insensitive' } },
+    ];
   }
 
   const [users, total] = await Promise.all([

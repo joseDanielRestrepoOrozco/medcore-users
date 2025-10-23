@@ -1,0 +1,91 @@
+version: '3.8'
+
+x-defaults: &defaults
+  restart: unless-stopped
+
+services:
+  medcore-auth:
+    build: ./medcore-auth
+    container_name: medcore-auth
+    <<: *defaults
+    env_file:
+      - ./.env.prod
+    environment:
+      - PORT=3000
+      - DATABASE_URL=${DATABASE_URL}
+      - JWT_SECRET=${JWT_SECRET}
+      - FRONTEND_ORIGIN=${FRONTEND_ORIGIN}
+      - USE_STUBS=${USE_STUBS:-false}
+    ports:
+      - "3001:3000"
+
+  medcore-users:
+    build: ./medcore-users
+    container_name: medcore-users
+    <<: *defaults
+    env_file:
+      - ./.env.prod
+    environment:
+      - PORT=3000
+      - DATABASE_URL=${DATABASE_URL}
+      - USE_STUBS=${USE_STUBS:-false}
+    ports:
+      - "3002:3000"
+
+  medcore-patients:
+    build: ./medcore-patients
+    container_name: medcore-patients
+    <<: *defaults
+    env_file:
+      - ./.env.prod
+    environment:
+      - PORT=3000
+      - DATABASE_URL=${DATABASE_URL}
+      - USE_STUBS=${USE_STUBS:-false}
+    ports:
+      - "3003:3000"
+
+  medcore-diagnostic:
+    build: ./medcore-diagnostic
+    container_name: medcore-diagnostic
+    <<: *defaults
+    env_file:
+      - ./.env.prod
+    environment:
+      - PORT=3000
+      - DATABASE_URL=${DATABASE_URL}
+      - USE_STUBS=${USE_STUBS:-false}
+    ports:
+      - "3004:3000"
+
+  medcore-apigateway:
+    build: ./medcore-apigateway
+    container_name: medcore-apigateway
+    <<: *defaults
+    env_file:
+      - ./.env.prod
+    environment:
+      - PORT=3000
+      - AUTH_SERVICE_URL=http://medcore-auth:3000
+      - USER_SERVICE_URL=http://medcore-users:3000
+      - PATIENT_SERVICE_URL=http://medcore-patients:3000
+      - DIAGNOSTIC_SERVICE_URL=http://medcore-diagnostic:3000
+      - CORS_ORIGINS=${FRONTEND_ORIGIN},http://localhost:8080
+    depends_on:
+      - medcore-auth
+      - medcore-users
+      - medcore-patients
+      - medcore-diagnostic
+    ports:
+      - "3000:3000"
+
+  medcore-frontend:
+    build: ./medcore-frontend
+    container_name: medcore-frontend
+    <<: *defaults
+    env_file:
+      - ./.env.prod
+    depends_on:
+      - medcore-apigateway
+    ports:
+      - "8080:80"
