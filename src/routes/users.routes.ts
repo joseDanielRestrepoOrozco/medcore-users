@@ -3,50 +3,72 @@ import usersController from '../controllers/users.controller.js';
 import { requireRoles } from '../middleware/auth.js';
 import csvUploadMiddleware from '../middleware/upload/csvUpload.middleware.js';
 import bulkUsersController from '../controllers/bulkUsers.controller.js';
+import unknownEndpoint from '../middleware/unknownEndpoint.js';
 
-const router = express.Router();
+const usersRouter = express.Router();
 
-router.get(
+// ============================================
+// RUTAS GENERALES DE USUARIOS (sin prefijo /users)
+// ============================================
+
+// Rutas de filtros específicos (deben ir antes de /:id)
+usersRouter.get(
   '/by-role',
   requireRoles(['ADMINISTRADOR']),
   usersController.getUsersByRole
 );
 
-router.get(
+usersRouter.get(
   '/by-specialty',
   requireRoles(['ADMINISTRADOR']),
   usersController.getUsersBySpecialty
 );
 
-// obtener todos los usuarios
-router.get('/', requireRoles(['ADMINISTRADOR']), usersController.getAll);
-
-// obtener un usuario por ID
-router.get(
-  '/:id',
-  requireRoles(['ADMINISTRADOR', 'MEDICO', 'ENFERMERA']),
-  usersController.getById
+usersRouter.get(
+  '/stats',
+  requireRoles(['ADMINISTRADOR']),
+  usersController.getStats
 );
 
-// crear un nuevo usuario
-router.post('/', requireRoles(['ADMINISTRADOR']), usersController.create);
-
-// actualizar un usuario por ID
-router.put('/:id', requireRoles(['ADMINISTRADOR']), usersController.update);
-
-// eliminar un usuario por ID
-router.delete('/:id', requireRoles(['ADMINISTRADOR']), usersController.remove);
-
-// obtener estadísticas de usuarios
-router.get('/stats', requireRoles(['ADMINISTRADOR']), usersController.getStats);
-
-
-// importar usuarios en masa desde un archivo CSV
-router.post(
+// Importar usuarios en masa desde un archivo CSV
+usersRouter.post(
   '/bulkUsers',
   requireRoles(['ADMINISTRADOR']),
   csvUploadMiddleware.uploadSingle,
   bulkUsersController.bulkImportPatients
 );
 
-export default router;
+// CRUD básico de usuarios
+usersRouter.get(
+  '/',
+  requireRoles(['ADMINISTRADOR']),
+  usersController.getAll
+);
+
+usersRouter.get(
+  '/:id',
+  requireRoles(['ADMINISTRADOR', 'MEDICO', 'ENFERMERA']),
+  usersController.getById
+);
+
+usersRouter.post(
+  '/',
+  requireRoles(['ADMINISTRADOR']),
+  usersController.create
+);
+
+usersRouter.put(
+  '/:id',
+  requireRoles(['ADMINISTRADOR']),
+  usersController.update
+);
+
+usersRouter.delete(
+  '/:id',
+  requireRoles(['ADMINISTRADOR']),
+  usersController.remove
+);
+
+usersRouter.use(unknownEndpoint);
+
+export default usersRouter;

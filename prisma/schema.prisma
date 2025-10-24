@@ -26,21 +26,79 @@ enum UserStatus {
   INACTIVE
 }
 
+// ============================================
+// MODELOS DE COLECCIONES
+// ============================================
+
+// Modelo de Departamento
+model Department {
+  id           String         @id @default(auto()) @map("_id") @db.ObjectId
+  name       String         @unique
+  description  String?
+  especialties Especialty[]
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+}
+
+// Modelo de Especialidad
+model Especialty {
+  id              String       @id @default(auto()) @map("_id") @db.ObjectId
+  name          String       @unique
+  description     String?
+  departmentId  String       @db.ObjectId
+  department    Department @relation(fields: [departmentId], references: [id])
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+}
+
+// Tipo compuesto para datos específicos de Médicos
+type DatosMedico {
+  especialtyId String @db.ObjectId
+  license_number String
+}
+
+// Tipo compuesto para datos específicos de Enfermeras
+type DatosEnfermera {
+  departmentId String @db.ObjectId
+}
+
+// Tipo compuesto para datos específicos de Pacientes (opcional, para futuras expansiones)
+type DatosPaciente {
+  gender         String
+  address        String?
+}
+
+// Tipo compuesto para datos específicos de Administradores (opcional, para futuras expansiones)
+type DatosAdministrador {
+  nivelAcceso      String?
+  departamentoAsignado String?
+}
+
+// ============================================
+// MODELO PRINCIPAL DE USUARIO
+// ============================================
+
 model Users {
-  id                      String     @id @default(auto()) @map("_id") @db.ObjectId
-  email                   String     @unique
+  id                      String              @id @default(auto()) @map("_id") @db.ObjectId
+  email                   String              @unique
   current_password        String
   fullname                String
-  role                    Role       @default(PACIENTE)
-  specialization          String? // Especialización médica (solo para médicos)
-  department              String? // Departamento (solo para enfermeras)
-  license_number          String? // Número de licencia médica (solo para médicos)
+  documentNumber String   @unique
+  role                    Role                @default(PACIENTE)
   date_of_birth           DateTime
   age                     Int
-  phone                   String? // Teléfono de contacto
-  status                  UserStatus @default(PENDING)
+  phone                   String?
+  gender                  String?
+  status                  UserStatus          @default(PENDING)
   verificationCode        String?
   verificationCodeExpires DateTime?
-  createdAt               DateTime   @default(now())
-  updatedAt               DateTime   @updatedAt
+  
+  // Campos embebidos según el rol (solo uno estará presente según el rol)
+  medico                  DatosMedico?
+  enfermera               DatosEnfermera?
+  paciente                DatosPaciente?
+  administrador           DatosAdministrador?
+  
+  createdAt               DateTime            @default(now())
+  updatedAt               DateTime            @updatedAt
 }

@@ -18,6 +18,19 @@ export const checkUserExists = async (email: string): Promise<boolean> => {
 };
 
 /**
+ * Verifica si un usuario existe por número de documento
+ */
+export const checkDocumentExists = async (
+  documentNumber: string
+): Promise<boolean> => {
+  const user = await prisma.users.findUnique({
+    where: { documentNumber },
+    select: { id: true },
+  });
+  return !!user;
+};
+
+/**
  * Obtiene todos los usuarios con filtros y paginación
  */
 export const getAllUsers = async (filters: {
@@ -25,23 +38,26 @@ export const getAllUsers = async (filters: {
   limit: number;
   status?: UserStatus;
   role?: Role;
-  specialization?: string;
+  especialtyId?: string;
+  gender?: string;
 }) => {
-  const { page, limit, status, role, specialization } = filters;
+  const { page, limit, status, role, especialtyId, gender } = filters;
   const skip = (page - 1) * limit;
 
-  const whereClause: {
-    status?: UserStatus;
-    role?: Role;
-    specialization?: string | undefined;
-  } = {
-    status: status as UserStatus | undefined,
-    role: role as Role | undefined,
-  };
+  // Construcción dinámica del whereClause
+  const whereClause: Record<string, unknown> = {};
 
-  // Filtro de especialización (case-insensitive partial match)
-  if (specialization) {
-    whereClause.specialization = specialization;
+  if (status) whereClause.status = status;
+  if (role) whereClause.role = role;
+  if (gender) whereClause.gender = gender;
+
+  // Filtro de especialidad para médicos usando equals
+  if (especialtyId && role === 'MEDICO') {
+    whereClause.medico = {
+      is: {
+        especialtyId: especialtyId,
+      },
+    };
   }
 
   const [users, total] = await Promise.all([
@@ -50,6 +66,11 @@ export const getAllUsers = async (filters: {
       skip,
       take: limit,
       orderBy: { createdAt: 'desc' },
+      omit: {
+        current_password: true,
+        verificationCode: true,
+        verificationCodeExpires: true,
+      },
     }),
     prisma.users.count({
       where: whereClause,
@@ -58,6 +79,94 @@ export const getAllUsers = async (filters: {
 
   return {
     users,
+    pagination: {
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    },
+  };
+};
+
+/**
+ * Búsqueda avanzada de pacientes (migrado de medcore-patients)
+ */
+export const searchPatientsAdvanced = async (filters: {
+  page: number;
+  limit: number;
+  documentNumber?: string;
+  gender?: string;
+  address?: string;
+  dateFrom?: Date;
+  dateTo?: Date;
+}) => {
+  const { page, limit, documentNumber, gender, address, dateFrom, dateTo } =
+    filters;
+  const skip = (page - 1) * limit;
+
+  // Construcción dinámica del whereClause
+  const whereClause: Record<string, unknown> = {
+    role: 'PACIENTE',
+  };
+
+  if (documentNumber) {
+    whereClause.documentNumber = documentNumber;
+  }
+
+  if (gender) {
+    whereClause.gender = gender;
+  }
+
+  // Para buscar en el campo embebido address, usar is con contains
+  if (address) {
+    whereClause.paciente = {
+      is: {
+        address: {
+          contains: address,
+          mode: 'insensitive',
+        },
+      },
+    };
+  }
+
+  // Filtro por rango de fechas
+  if (dateFrom || dateTo) {
+    const createdAtFilter: Record<string, Date> = {};
+    if (dateFrom) {
+      createdAtFilter.gte = dateFrom;
+    }
+    if (dateTo) {
+      const endDate = new Date(dateTo);
+      endDate.setHours(23, 59, 59, 999);
+      createdAtFilter.lte = endDate;
+    }
+    whereClause.createdAt = createdAtFilter;
+  }
+
+  const [patients, total] = await Promise.all([
+    prisma.users.findMany({
+      where: whereClause,
+      skip,
+      take: limit,
+      orderBy: { createdAt: 'desc' },
+      omit: {
+        current_password: true,
+        verificationCode: true,
+        verificationCodeExpires: true,
+      },
+    }),
+    prisma.users.count({ where: whereClause }),
+  ]);
+
+  return {
+    patients,
+    filters: {
+      documentNumber,
+      gender,
+      address,
+      dateFrom,
+      dateTo,
+    },
     pagination: {
       total,
       page,
@@ -82,6 +191,20 @@ export const getUserById = async (id: string) => {
 };
 
 /**
+ * Obtiene un paciente por ID (solo usuarios con role PACIENTE)
+ */
+export const getPatientById = async (id: string) => {
+  return await prisma.users.findFirst({
+    where: { id, role: 'PACIENTE' },
+    omit: {
+      current_password: true,
+      verificationCode: true,
+      verificationCodeExpires: true,
+    },
+  });
+};
+
+/**
  * Actualiza un usuario por ID
  */
 export const updateUser = async (
@@ -89,9 +212,12 @@ export const updateUser = async (
   updateData: Record<string, unknown>,
   role?: Role
 ) => {
-  const existingUser = await prisma.users.findUnique({
-    where: { id, role },
-    select: { id: true },
+  const whereClause: { id: string; role?: Role } = { id };
+  if (role) whereClause.role = role;
+
+  const existingUser = await prisma.users.findFirst({
+    where: whereClause,
+    select: { id: true, role: true },
   });
 
   if (!existingUser) {
@@ -122,18 +248,30 @@ export const updateUser = async (
       : undefined;
 
     age = date_of_birth ? calculateAge(date_of_birth.toISOString()) : undefined;
-    validateAge.parse(age);
+    if (age) validateAge.parse(age);
   }
 
-  console.log('llega');
+  // Preparar datos embebidos según el rol
+  const dataToUpdate: Record<string, unknown> = { ...updateData };
+
+  // Manejar campos embebidos específicos por rol
+  if (existingUser.role === 'MEDICO' && updateData.medico) {
+    dataToUpdate.medico = updateData.medico;
+  } else if (existingUser.role === 'ENFERMERA' && updateData.enfermera) {
+    dataToUpdate.enfermera = updateData.enfermera;
+  } else if (existingUser.role === 'PACIENTE' && updateData.paciente) {
+    dataToUpdate.paciente = updateData.paciente;
+  } else if (existingUser.role === 'ADMINISTRADOR' && updateData.administrador) {
+    dataToUpdate.administrador = updateData.administrador;
+  }
+
+  if (status) dataToUpdate.status = status;
+  if (date_of_birth) dataToUpdate.date_of_birth = date_of_birth;
+  if (age) dataToUpdate.age = age;
+
   return await prisma.users.update({
     where: { id },
-    data: {
-      ...updateData,
-      status,
-      date_of_birth,
-      age,
-    },
+    data: dataToUpdate,
     omit: {
       current_password: true,
       verificationCode: true,
@@ -200,15 +338,28 @@ export const getUserStats = async () => {
 export const createUser = async (userData: {
   email: string;
   fullname: string;
+  documentNumber: string;
   current_password: string;
   date_of_birth: string | Date;
   role: Role;
+  gender?: string;
+  phone?: string;
+  medico?: { especialtyId: string; license_number: string };
+  enfermera?: { departmentId: string };
+  paciente?: { gender: string; address?: string };
+  administrador?: { nivelAcceso?: string; departamentoAsignado?: string };
   [key: string]: unknown;
 }) => {
-  // Verificar si el usuario ya existe
+  // Verificar si el usuario ya existe por email
   const userExists = await checkUserExists(userData.email);
   if (userExists) {
     throw new Error('User already exists');
+  }
+
+  // Verificar si el documento ya existe
+  const documentExists = await checkDocumentExists(userData.documentNumber);
+  if (documentExists) {
+    throw new Error('Document number already exists');
   }
 
   // Calcular y validar edad
@@ -227,16 +378,52 @@ export const createUser = async (userData: {
   // Hash de la contraseña
   const hashedPassword = await bcrypt.hash(userData.current_password, 10);
 
+  // Preparar datos para creación
+  const createData: {
+    email: string;
+    fullname: string;
+    documentNumber: string;
+    current_password: string;
+    date_of_birth: Date;
+    age: number;
+    role: Role;
+    gender?: string;
+    phone?: string;
+    verificationCode: string;
+    verificationCodeExpires: Date;
+    medico?: { especialtyId: string; license_number: string };
+    enfermera?: { departmentId: string };
+    paciente?: { gender: string; address?: string };
+    administrador?: { nivelAcceso?: string; departamentoAsignado?: string };
+  } = {
+    email: userData.email,
+    fullname: userData.fullname,
+    documentNumber: userData.documentNumber,
+    current_password: hashedPassword,
+    date_of_birth: new Date(userData.date_of_birth),
+    age,
+    role: userData.role,
+    verificationCode,
+    verificationCodeExpires,
+  };
+
+  if (userData.gender) createData.gender = userData.gender;
+  if (userData.phone) createData.phone = userData.phone;
+
+  // Añadir campos embebidos según el rol
+  if (userData.role === 'MEDICO' && userData.medico) {
+    createData.medico = userData.medico;
+  } else if (userData.role === 'ENFERMERA' && userData.enfermera) {
+    createData.enfermera = userData.enfermera;
+  } else if (userData.role === 'PACIENTE' && userData.paciente) {
+    createData.paciente = userData.paciente;
+  } else if (userData.role === 'ADMINISTRADOR' && userData.administrador) {
+    createData.administrador = userData.administrador;
+  }
+
   // Crear usuario en la base de datos
   const newUser = await prisma.users.create({
-    data: {
-      ...userData,
-      age,
-      date_of_birth: new Date(userData.date_of_birth),
-      current_password: hashedPassword,
-      verificationCode,
-      verificationCodeExpires,
-    },
+    data: createData,
   });
 
   // Enviar email de verificación
@@ -259,6 +446,7 @@ export const createUser = async (userData: {
     id: newUser.id,
     email: newUser.email,
     fullname: newUser.fullname,
+    documentNumber: newUser.documentNumber,
     status: newUser.status,
     role: newUser.role,
   };
@@ -266,8 +454,11 @@ export const createUser = async (userData: {
 
 export default {
   checkUserExists,
+  checkDocumentExists,
   getAllUsers,
+  searchPatientsAdvanced,
   getUserById,
+  getPatientById,
   updateUser,
   deactivateUser,
   getUserStats,

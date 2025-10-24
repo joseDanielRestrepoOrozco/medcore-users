@@ -105,8 +105,11 @@ class BulkService {
       // Validar y parsear datos del usuario
       const data = userSchema.parse(row);
 
-      // Calcular edad
-      const age = calculateAge(data.date_of_birth);
+      // Calcular edad (convertir Date a string ISO si es necesario)
+      const dateOfBirth = typeof data.date_of_birth === 'string' 
+        ? data.date_of_birth 
+        : data.date_of_birth.toISOString();
+      const age = calculateAge(dateOfBirth);
       validateAge.parse(age);
 
       // Generar código de verificación

@@ -1,5 +1,9 @@
 import { z } from 'zod';
 
+// ============================================
+// SCHEMAS DE FILTROS Y PAGINACIÓN
+// ============================================
+
 // Schema para filtros de búsqueda generales (todos los campos opcionales)
 export const getUsersFiltersSchema = z.object({
   status: z.enum(['PENDING', 'ACTIVE', 'INACTIVE']).optional(),
@@ -24,10 +28,25 @@ export const getDoctorsFiltersSchema = z.object({
 
 export const getSpecialtyFiltersSchema = z.object({
   status: z.enum(['PENDING', 'ACTIVE', 'INACTIVE']).optional(),
-  specialty: z.string().optional(),
+  especialtyId: z.string().optional(),
   page: z.coerce.number().int().positive().optional().default(1),
   limit: z.coerce.number().int().positive().max(100).optional().default(10),
 });
+
+// Schema para búsqueda avanzada de pacientes (migrado de patients)
+export const advancedSearchSchema = z.object({
+  documentNumber: z.string().optional(),
+  gender: z.string().optional(),
+  address: z.string().optional(),
+  dateFrom: z.coerce.date().optional(),
+  dateTo: z.coerce.date().optional(),
+  page: z.coerce.number().int().positive().optional().default(1),
+  limit: z.coerce.number().int().positive().max(100).optional().default(10),
+});
+
+// ============================================
+// VALIDACIONES COMUNES
+// ============================================
 
 const nameRegex = /^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$/;
 
@@ -45,35 +64,73 @@ const roleEnumSchema = z.enum([
   'ADMINISTRADOR',
 ]);
 
+export const validateAge = z.number().min(1).max(120);
+
+// ============================================
+// SCHEMAS DE TIPOS COMPUESTOS (EMBEBIDOS)
+// ============================================
+
+// Datos específicos de Médicos
+export const datosMedicoSchema = z.object({
+  especialtyId: z.string(),
+  license_number: z.string(),
+});
+
+// Datos específicos de Enfermeras
+export const datosEnfermeraSchema = z.object({
+  departmentId: z.string(),
+});
+
+// Datos específicos de Pacientes
+export const datosPacienteSchema = z.object({
+  gender: z.string(),
+  address: z.string().optional(),
+});
+
+// Datos específicos de Administradores
+export const datosAdministradorSchema = z.object({
+  nivelAcceso: z.string().optional(),
+  departamentoAsignado: z.string().optional(),
+});
+
+// ============================================
+// SCHEMAS DE USUARIO BASE
+// ============================================
+
 const baseUser = z.object({
   email: z.email(),
   current_password,
   fullname: z.string().min(1).regex(nameRegex, { message: 'Nombre inválido' }),
+  documentNumber: z.string().min(1, { message: 'Número de documento requerido' }),
   phone: z.string().optional(),
-  date_of_birth: z.iso.date(),
+  gender: z.string().optional(),
+  date_of_birth: z.coerce.date(),
   status: z.enum(['PENDING', 'ACTIVE', 'INACTIVE']).default('PENDING'),
 });
 
-export const validateAge = z.number().min(1).max(100);
+// ============================================
+// SCHEMAS POR ROL (CREACIÓN)
+// ============================================
 
 export const medicoSchema = baseUser.extend({
   role: z.literal(roleEnumSchema.enum.MEDICO),
-  specialization: z.string(),
-  department: z.string(),
-  license_number: z.string(),
+  medico: datosMedicoSchema,
 });
 
 export const enfermeraSchema = baseUser.extend({
   role: z.literal(roleEnumSchema.enum.ENFERMERA),
-  department: z.string(),
+  enfermera: datosEnfermeraSchema,
 });
 
 export const pacienteSchema = baseUser.extend({
   role: z.literal(roleEnumSchema.enum.PACIENTE),
+  gender: z.string(), // Campo base requerido para pacientes
+  paciente: datosPacienteSchema.optional(),
 });
 
 export const administradorSchema = baseUser.extend({
   role: z.literal(roleEnumSchema.enum.ADMINISTRADOR),
+  administrador: datosAdministradorSchema.optional(),
 });
 
 export const userSchema = z.discriminatedUnion('role', [
@@ -83,16 +140,29 @@ export const userSchema = z.discriminatedUnion('role', [
   administradorSchema,
 ]);
 
-export const medicoUpdateSchema = medicoSchema.omit({ status: true }).partial();
+// ============================================
+// SCHEMAS DE ACTUALIZACIÓN
+// ============================================
+
+export const medicoUpdateSchema = medicoSchema
+  .omit({ status: true, current_password: true })
+  .partial();
+
 export const enfermeraUpdateSchema = enfermeraSchema
-  .omit({ status: true })
+  .omit({ status: true, current_password: true })
   .partial();
+
 export const pacienteUpdateSchema = pacienteSchema
-  .omit({ status: true })
+  .omit({ status: true, current_password: true })
   .partial();
+
 export const administradorUpdateSchema = administradorSchema
-  .omit({ status: true })
+  .omit({ status: true, current_password: true })
   .partial();
+
+// ============================================
+// SCHEMAS AUXILIARES
+// ============================================
 
 export type User = z.infer<typeof userSchema>;
 
@@ -103,7 +173,7 @@ export const roleSchema = z
 
 export type Role = z.infer<typeof roleSchema>;
 
-export const verifyIdSchema = z.uuid();
+export const verifyIdSchema = z.string();
 
 export const statusSchema = z.object({
   status: z.enum(['PENDING', 'ACTIVE', 'INACTIVE']),
