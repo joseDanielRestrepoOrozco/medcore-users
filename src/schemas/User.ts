@@ -4,6 +4,7 @@ import { z } from 'zod';
 export const getUsersFiltersSchema = z
   .object({
     status: z.enum(['PENDING', 'ACTIVE', 'INACTIVE']).optional(),
+    role: z.string().optional(),
     q: z.string().optional(),
     // alias requerido por doc: state=active|inactive
     state: z
@@ -15,7 +16,17 @@ export const getUsersFiltersSchema = z
     limit: z.coerce.number().int().positive().max(100).optional().default(10),
   })
   .transform((q) => {
+    const roleMap: Record<string, string> = {
+      DOCTOR: 'MEDICO', MÉDICO: 'MEDICO', MEDICO: 'MEDICO',
+      NURSE: 'ENFERMERA', ENFERMERA: 'ENFERMERA',
+      PATIENT: 'PACIENTE', PACIENTE: 'PACIENTE',
+      ADMIN: 'ADMINISTRADOR', ADMINISTRADOR: 'ADMINISTRADOR',
+    };
     const out: Record<string, unknown> = { ...q };
+    if (out.role) {
+      const upper = String(out.role).toUpperCase();
+      out.role = roleMap[upper] ?? upper;
+    }
     if (!out.status && out.state) {
       out.status = String(out.state).toUpperCase();
     }

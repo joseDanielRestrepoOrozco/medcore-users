@@ -1,6 +1,5 @@
 import { PrismaClient, Prisma } from '@prisma/client';
 type Role = Prisma.Role;
-type UserStatus = Prisma.UserStatus;
 import bcrypt from 'bcrypt';
 import calculateAge from '../libs/calculateAge.js';
 import emailConfig from '../config/emailConfig.js';
@@ -40,7 +39,7 @@ export const getAllUsers = async (filters: {
 
   // Filtro de especialización (case-insensitive partial match)
   if (specialization) {
-    whereClause.specialization = specialization;
+    whereClause.specialization = { contains: specialization, mode: 'insensitive' };
   }
 
   if (q && q.trim().length > 0) {
@@ -99,27 +98,18 @@ export const updateUser = async (
   role?: Role
 ) => {
   const existingUser = await prisma.users.findUnique({
-    where: { id, role },
-    select: { id: true },
+    where: { id },
+    select: { id: true, role: true },
   });
 
   if (!existingUser) {
     return null;
   }
 
-  let status: UserStatus | undefined;
-  if (updateData.status) {
-    switch (updateData.status) {
-      case 'ACTIVE':
-        status = UserStatus.ACTIVE;
-        break;
-      case 'PENDING':
-        status = UserStatus.PENDING;
-        break;
-      case 'INACTIVE':
-        status = UserStatus.INACTIVE;
-        break;
-    }
+  let status: 'ACTIVE' | 'PENDING' | 'INACTIVE' | undefined;
+  if (typeof updateData.status === 'string') {
+    const s = updateData.status.toUpperCase();
+    if (s === 'ACTIVE' || s === 'PENDING' || s === 'INACTIVE') status = s;
   }
 
   let date_of_birth: Date | undefined;
@@ -134,11 +124,12 @@ export const updateUser = async (
     validateAge.parse(age);
   }
 
-  console.log('llega');
   return await prisma.users.update({
     where: { id },
     data: {
-      ...updateData,
+      email: (updateData.email as string) || undefined,
+      fullname: (updateData.fullname as string) || undefined,
+      phone: (updateData.phone as string) || undefined,
       status,
       date_of_birth,
       age,
