@@ -3,6 +3,10 @@ import bcrypt from 'bcrypt';
 import calculateAge from '../libs/calculateAge.js';
 import emailConfig from '../config/emailConfig.js';
 import { validateAge } from '../schemas/User.js';
+import {
+  findSpecialtyByName,
+  findDepartmentByName,
+} from './specialty.service.js';
 
 const prisma = new PrismaClient();
 
@@ -256,12 +260,46 @@ export const updateUser = async (
 
   // Manejar campos embebidos específicos por rol
   if (existingUser.role === 'MEDICO' && updateData.medico) {
-    dataToUpdate.medico = updateData.medico;
+    const medicoData = updateData.medico as Record<string, unknown>;
+
+    // Si se envía specialty, buscar el specialtyId
+    if (medicoData.specialty && typeof medicoData.specialty === 'string') {
+      const specialtyId = await findSpecialtyByName(medicoData.specialty);
+      if (!specialtyId) {
+        throw new Error(
+          `Specialty '${medicoData.specialty}' not found. Please verify the specialty name.`
+        );
+      }
+      medicoData.specialtyId = specialtyId;
+      delete medicoData.specialty;
+    }
+
+    dataToUpdate.medico = medicoData;
   } else if (existingUser.role === 'ENFERMERA' && updateData.enfermera) {
-    dataToUpdate.enfermera = updateData.enfermera;
+    const enfermeraData = updateData.enfermera as Record<string, unknown>;
+
+    // Si se envía department, buscar el departmentId
+    if (
+      enfermeraData.department &&
+      typeof enfermeraData.department === 'string'
+    ) {
+      const departmentId = await findDepartmentByName(enfermeraData.department);
+      if (!departmentId) {
+        throw new Error(
+          `Department '${enfermeraData.department}' not found. Please verify the department name.`
+        );
+      }
+      enfermeraData.departmentId = departmentId;
+      delete enfermeraData.department;
+    }
+
+    dataToUpdate.enfermera = enfermeraData;
   } else if (existingUser.role === 'PACIENTE' && updateData.paciente) {
     dataToUpdate.paciente = updateData.paciente;
-  } else if (existingUser.role === 'ADMINISTRADOR' && updateData.administrador) {
+  } else if (
+    existingUser.role === 'ADMINISTRADOR' &&
+    updateData.administrador
+  ) {
     dataToUpdate.administrador = updateData.administrador;
   }
 
@@ -344,8 +382,8 @@ export const createUser = async (userData: {
   role: Role;
   gender?: string;
   phone?: string;
-  medico?: { especialtyId: string; license_number: string };
-  enfermera?: { departmentId: string };
+  medico?: { specialty: string; license_number: string };
+  enfermera?: { department: string };
   paciente?: { gender: string; address?: string };
   administrador?: { nivelAcceso?: string; departamentoAsignado?: string };
   [key: string]: unknown;
@@ -360,6 +398,28 @@ export const createUser = async (userData: {
   const documentExists = await checkDocumentExists(userData.documentNumber);
   if (documentExists) {
     throw new Error('Document number already exists');
+  }
+
+  // Validar y buscar especialidad si es médico
+  let specialtyId: string | null = null;
+  if (userData.role === 'MEDICO' && userData.medico?.specialty) {
+    specialtyId = await findSpecialtyByName(userData.medico.specialty);
+    if (!specialtyId) {
+      throw new Error(
+        `Specialty '${userData.medico.specialty}' not found. Please verify the specialty name.`
+      );
+    }
+  }
+
+  // Validar y buscar departamento si es enfermera
+  let departmentId: string | null = null;
+  if (userData.role === 'ENFERMERA' && userData.enfermera?.department) {
+    departmentId = await findDepartmentByName(userData.enfermera.department);
+    if (!departmentId) {
+      throw new Error(
+        `Department '${userData.enfermera.department}' not found. Please verify the department name.`
+      );
+    }
   }
 
   // Calcular y validar edad
@@ -411,10 +471,19 @@ export const createUser = async (userData: {
   if (userData.phone) createData.phone = userData.phone;
 
   // Añadir campos embebidos según el rol
-  if (userData.role === 'MEDICO' && userData.medico) {
-    createData.medico = userData.medico;
-  } else if (userData.role === 'ENFERMERA' && userData.enfermera) {
-    createData.enfermera = userData.enfermera;
+  if (userData.role === 'MEDICO' && userData.medico && specialtyId) {
+    createData.medico = {
+      especialtyId: specialtyId,
+      license_number: userData.medico.license_number,
+    };
+  } else if (
+    userData.role === 'ENFERMERA' &&
+    userData.enfermera &&
+    departmentId
+  ) {
+    createData.enfermera = {
+      departmentId: departmentId,
+    };
   } else if (userData.role === 'PACIENTE' && userData.paciente) {
     createData.paciente = userData.paciente;
   } else if (userData.role === 'ADMINISTRADOR' && userData.administrador) {

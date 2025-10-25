@@ -12,6 +12,6 @@ router.use('/users/nurses', nursesRouter);
 router.use('/users/patients', patientsRouter);
 
 // Rutas generales de usuarios (sin prefijo adicional)
-router.use('/', usersRouter);
+router.use('/users', usersRouter);
 
 export default router;

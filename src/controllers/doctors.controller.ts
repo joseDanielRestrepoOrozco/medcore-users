@@ -14,7 +14,7 @@ const getAllDoctors = async (
 ) => {
   try {
     const filters = getDoctorsFiltersSchema.parse(req.query);
-    
+
     const result = await usersService.getAllUsers({
       role: 'MEDICO',
       status: filters.status,
@@ -35,6 +35,7 @@ const createDoctor = async (
 ) => {
   try {
     const newDoctorData = medicoSchema.parse({ ...req.body, role: 'MEDICO' });
+
     const createdDoctor = await usersService.createUser(newDoctorData);
 
     res.status(201).json({
@@ -49,6 +50,14 @@ const createDoctor = async (
       }
       if (error.message === 'Error sending verification email') {
         res.status(500).json({ error: 'Error sending verification email' });
+        return;
+      }
+      // Manejar error de especialidad no encontrada
+      if (
+        error.message.includes('Specialty') &&
+        error.message.includes('not found')
+      ) {
+        res.status(404).json({ error: error.message });
         return;
       }
     }
@@ -121,6 +130,14 @@ const updateDoctor = async (
         res.status(404).json({ error: 'Doctor not found' });
         return;
       }
+      // Manejar error de especialidad no encontrada
+      if (
+        error.message.includes('Specialty') &&
+        error.message.includes('not found')
+      ) {
+        res.status(404).json({ error: error.message });
+        return;
+      }
     }
     next(error);
   }
@@ -141,12 +158,7 @@ const updateStatus = async (
 
     const status = statusSchema.parse(req.body);
 
-    const updatedDoctor = await usersService.updateUser(
-      id,
-      status,
-      'MEDICO'
-    );
-    
+    const updatedDoctor = await usersService.updateUser(id, status, 'MEDICO');
 
     if (!updatedDoctor) {
       res.status(404).json({ error: 'Doctor not found' });

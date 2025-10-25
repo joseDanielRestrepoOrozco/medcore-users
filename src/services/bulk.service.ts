@@ -8,6 +8,10 @@ import emailConfig, {
 import { parseBuffer } from '../libs/parseFile.js';
 import { userSchema, validateAge } from '../schemas/User.js';
 import calculateAge from '../libs/calculateAge.js';
+import {
+  findSpecialtyByName,
+  findDepartmentByName,
+} from './specialty.service.js';
 
 const prisma = new PrismaClient();
 
@@ -54,7 +58,9 @@ class BulkService {
         try {
           if (!row) continue;
 
-          const processResult = await this.processUserRow(row);
+          // Transformar el row del CSV a la estructura esperada
+          const transformedRow = this.transformCsvRow(row);
+          const processResult = await this.processUserRow(transformedRow);
 
           if (processResult.success && processResult.user) {
             results.successful.push({
@@ -96,6 +102,55 @@ class BulkService {
     }
   }
 
+  private transformCsvRow(
+    row: Record<string, unknown>
+  ): Record<string, unknown> {
+    const transformed: Record<string, unknown> = {};
+
+    // Copiar campos base
+    for (const [key, value] of Object.entries(row)) {
+      if (!key.includes('.')) {
+        transformed[key] = value;
+      }
+    }
+
+    // Transformar campos anidados para médico
+    if (row['medico.specialty'] || row['medico.license_number']) {
+      transformed.medico = {
+        specialty: row['medico.specialty'] || '',
+        license_number: row['medico.license_number'] || '',
+      };
+    }
+
+    // Transformar campos anidados para enfermera
+    if (row['enfermera.department']) {
+      transformed.enfermera = {
+        department: row['enfermera.department'] || '',
+      };
+    }
+
+    // Transformar campos anidados para paciente
+    if (row['paciente.gender'] || row['paciente.address']) {
+      transformed.paciente = {
+        gender: row['paciente.gender'] || '',
+        address: row['paciente.address'] || '',
+      };
+    }
+
+    // Transformar campos anidados para administrador
+    if (
+      row['administrador.nivelAcceso'] ||
+      row['administrador.departamentoAsignado']
+    ) {
+      transformed.administrador = {
+        nivelAcceso: row['administrador.nivelAcceso'] || '',
+        departamentoAsignado: row['administrador.departamentoAsignado'] || '',
+      };
+    }
+
+    return transformed;
+  }
+
   private async processUserRow(row: Record<string, unknown>): Promise<{
     success: boolean;
     user?: Users;
@@ -106,9 +161,10 @@ class BulkService {
       const data = userSchema.parse(row);
 
       // Calcular edad (convertir Date a string ISO si es necesario)
-      const dateOfBirth = typeof data.date_of_birth === 'string' 
-        ? data.date_of_birth 
-        : data.date_of_birth.toISOString();
+      const dateOfBirth =
+        typeof data.date_of_birth === 'string'
+          ? data.date_of_birth
+          : data.date_of_birth.toISOString();
       const age = calculateAge(dateOfBirth);
       validateAge.parse(age);
 
@@ -117,16 +173,69 @@ class BulkService {
       const verificationCodeExpires = new Date();
       verificationCodeExpires.setHours(verificationCodeExpires.getHours() + 24);
 
+      // Preparar datos base
+      const userData: Record<string, unknown> = {
+        email: data.email,
+        current_password: await bcrypt.hash(data.current_password, 10),
+        fullname: data.fullname,
+        documentNumber: data.documentNumber,
+        role: data.role,
+        date_of_birth: new Date(data.date_of_birth),
+        age,
+        phone: data.phone,
+        gender: data.gender,
+        status: data.status,
+        verificationCode,
+        verificationCodeExpires,
+      };
+
+      // Manejar campos específicos según el rol
+      if (data.role === 'MEDICO' && 'medico' in data && data.medico) {
+        // Buscar especialidad por nombre
+        const specialtyId = await findSpecialtyByName(data.medico.specialty);
+        if (!specialtyId) {
+          return {
+            success: false,
+            error: `Especialidad "${data.medico.specialty}" no encontrada. Cree la especialidad primero.`,
+          };
+        }
+        userData.medico = {
+          especialtyId: specialtyId,
+          license_number: data.medico.license_number,
+        };
+      } else if (
+        data.role === 'ENFERMERA' &&
+        'enfermera' in data &&
+        data.enfermera
+      ) {
+        // Buscar departamento por nombre
+        const departmentId = await findDepartmentByName(
+          data.enfermera.department
+        );
+        if (!departmentId) {
+          return {
+            success: false,
+            error: `Departamento "${data.enfermera.department}" no encontrado. Cree el departamento primero.`,
+          };
+        }
+        userData.enfermera = {
+          departmentId: departmentId,
+        };
+      } else if (data.role === 'PACIENTE') {
+        // Para pacientes, el campo paciente es opcional pero gender es requerido
+        if ('paciente' in data && data.paciente) {
+          userData.paciente = data.paciente;
+        }
+      } else if (data.role === 'ADMINISTRADOR') {
+        // Para administradores, los datos son opcionales
+        if ('administrador' in data && data.administrador) {
+          userData.administrador = data.administrador;
+        }
+      }
+
       // Crear usuario en la base de datos
       const user = await prisma.users.create({
-        data: {
-          ...data,
-          current_password: await bcrypt.hash(data.current_password, 10),
-          age,
-          date_of_birth: new Date(data.date_of_birth),
-          verificationCode,
-          verificationCodeExpires,
-        },
+        data: userData as never,
       });
 
       // Intentar enviar email de verificación
