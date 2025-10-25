@@ -1,9 +1,5 @@
 import { type Request, type Response, type NextFunction } from 'express';
-import {
-  enfermeraSchema,
-  enfermeraUpdateSchema,
-  statusSchema,
-} from '../schemas/User.js';
+import { enfermeraSchema, enfermeraUpdateSchema } from '../schemas/User.js';
 import * as usersService from '../services/users.service.js';
 
 const createNurse = async (req: Request, res: Response, next: NextFunction) => {
@@ -37,6 +33,8 @@ const createNurse = async (req: Request, res: Response, next: NextFunction) => {
         return;
       }
     }
+
+    console.log(error);
     next(error);
   }
 };
@@ -128,9 +126,23 @@ const updateStatus = async (
       return;
     }
 
-    const status = statusSchema.parse(req.body);
+    // Obtener la enfermera actual
+    const currentNurse = await usersService.getUserById(id);
 
-    const updatedNurse = await usersService.updateUser(id, status, 'ENFERMERA');
+    if (!currentNurse || currentNurse.role !== 'ENFERMERA') {
+      res.status(404).json({ error: 'Nurse not found' });
+      return;
+    }
+
+    // Toggle del estado: ACTIVE <-> INACTIVE
+    const newStatus = currentNurse.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
+
+    // Actualizar con el nuevo estado
+    const updatedNurse = await usersService.updateUser(
+      id,
+      { status: newStatus },
+      'ENFERMERA'
+    );
 
     if (!updatedNurse) {
       res.status(404).json({ error: 'Nurse not found' });
@@ -139,7 +151,7 @@ const updateStatus = async (
 
     res.status(200).json({
       updatedNurse,
-      message: 'Nurse status updated successfully',
+      message: `Nurse status updated to ${newStatus}`,
     });
   } catch (error) {
     if (error instanceof Error) {

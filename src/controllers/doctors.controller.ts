@@ -2,7 +2,6 @@ import { type Request, type Response, type NextFunction } from 'express';
 import {
   medicoSchema,
   medicoUpdateSchema,
-  statusSchema,
   getDoctorsFiltersSchema,
 } from '../schemas/User.js';
 import * as usersService from '../services/users.service.js';
@@ -156,9 +155,23 @@ const updateStatus = async (
       return;
     }
 
-    const status = statusSchema.parse(req.body);
+    // Obtener el doctor actual
+    const currentDoctor = await usersService.getUserById(id);
 
-    const updatedDoctor = await usersService.updateUser(id, status, 'MEDICO');
+    if (!currentDoctor || currentDoctor.role !== 'MEDICO') {
+      res.status(404).json({ error: 'Doctor not found' });
+      return;
+    }
+
+    // Toggle del estado: ACTIVE <-> INACTIVE
+    const newStatus = currentDoctor.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
+
+    // Actualizar con el nuevo estado
+    const updatedDoctor = await usersService.updateUser(
+      id,
+      { status: newStatus },
+      'MEDICO'
+    );
 
     if (!updatedDoctor) {
       res.status(404).json({ error: 'Doctor not found' });
@@ -167,7 +180,7 @@ const updateStatus = async (
 
     res.status(200).json({
       updatedDoctor,
-      message: 'Doctor status updated successfully',
+      message: `Doctor status updated to ${newStatus}`,
     });
   } catch (error) {
     if (error instanceof Error) {
