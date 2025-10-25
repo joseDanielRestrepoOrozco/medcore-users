@@ -1,8 +1,8 @@
 import express from 'express';
 import usersController from '../controllers/users.controller.js';
 import { requireRoles } from '../middleware/auth.js';
-// import csvUploadMiddleware from '../middleware/upload/csvUpload.middleware.js';
-// import bulkUsersController from '../controllers/bulkUsers.controller.js';
+import csvUploadMiddleware from '../middleware/upload/csvUpload.middleware.js';
+import bulkUsersController from '../controllers/bulkUsers.controller.js';
 import unknownEndpoint from '../middleware/unknownEndpoint.js';
 
 const usersRouter = express.Router();
@@ -33,13 +33,12 @@ usersRouter.get(
 );
 
 // Importar usuarios en masa desde un archivo CSV
-// desactivado temporalmente 
-// usersRouter.post(
-//   '/bulkUsers',
-//   requireRoles(['ADMINISTRADOR']),
-//   csvUploadMiddleware.uploadSingle,
-//   bulkUsersController.bulkImportPatients
-// );
+usersRouter.post(
+  '/bulkUsers',
+  requireRoles(['ADMINISTRADOR']),
+  csvUploadMiddleware.uploadSingle,
+  bulkUsersController.bulkImportPatients
+);
 
 // CRUD básico de usuarios - Listar todos
 usersRouter.get('/', requireRoles(['ADMINISTRADOR']), usersController.getAll);
