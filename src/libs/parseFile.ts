@@ -10,7 +10,11 @@ export function parseBuffer(
 
   if (ext === 'csv') {
     const str = buffer.toString('utf-8');
-    const records = csvParse(str, { columns: true, skip_empty_lines: true });
+    const records = csvParse(str, {
+      columns: true,
+      skip_empty_lines: true,
+      relax_column_count: true, // Permitir filas con diferente número de columnas
+    });
     return records as Array<Record<string, unknown>>;
   }
 

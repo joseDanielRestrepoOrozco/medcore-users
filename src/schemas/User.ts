@@ -70,16 +70,51 @@ export const validateAge = z.number().min(1).max(120);
 // SCHEMAS DE TIPOS COMPUESTOS (EMBEBIDOS)
 // ============================================
 
-// Datos específicos de Médicos
+// Datos específicos de Médicos - Para creación (recibe nombre de especialidad)
 export const datosMedicoSchema = z.object({
-  especialtyId: z.string(),
+  specialty: z
+    .string()
+    .min(1, { message: 'El nombre de la especialidad es requerido' }),
   license_number: z.string(),
 });
 
-// Datos específicos de Enfermeras
+// Datos específicos de Médicos - Para actualización (acepta specialtyId)
+export const datosMedicoUpdateSchema = z
+  .object({
+    specialtyId: z.string().optional(),
+    specialty: z.string().optional(),
+    license_number: z.string().optional(),
+  })
+  .refine(
+    data => {
+      // Al menos uno de los dos debe estar presente si se envía el objeto
+      if (data.specialtyId || data.specialty) return true;
+      return false;
+    },
+    { message: 'Debe proporcionar specialty o specialtyId' }
+  );
+
+// Datos específicos de Enfermeras - Para creación (recibe nombre de departamento)
 export const datosEnfermeraSchema = z.object({
-  departmentId: z.string(),
+  department: z
+    .string()
+    .min(1, { message: 'El nombre del departamento es requerido' }),
 });
+
+// Datos específicos de Enfermeras - Para actualización (acepta departmentId)
+export const datosEnfermeraUpdateSchema = z
+  .object({
+    departmentId: z.string().optional(),
+    department: z.string().optional(),
+  })
+  .refine(
+    data => {
+      // Al menos uno de los dos debe estar presente si se envía el objeto
+      if (data.departmentId || data.department) return true;
+      return false;
+    },
+    { message: 'Debe proporcionar department o departmentId' }
+  );
 
 // Datos específicos de Pacientes
 export const datosPacienteSchema = z.object({
@@ -101,7 +136,9 @@ const baseUser = z.object({
   email: z.email(),
   current_password,
   fullname: z.string().min(1).regex(nameRegex, { message: 'Nombre inválido' }),
-  documentNumber: z.string().min(1, { message: 'Número de documento requerido' }),
+  documentNumber: z
+    .string()
+    .min(1, { message: 'Número de documento requerido' }),
   phone: z.string().optional(),
   gender: z.string().optional(),
   date_of_birth: z.coerce.date(),
@@ -144,11 +181,19 @@ export const userSchema = z.discriminatedUnion('role', [
 // SCHEMAS DE ACTUALIZACIÓN
 // ============================================
 
-export const medicoUpdateSchema = medicoSchema
+export const medicoUpdateSchema = baseUser
+  .extend({
+    role: z.literal(roleEnumSchema.enum.MEDICO),
+    medico: datosMedicoUpdateSchema.optional(),
+  })
   .omit({ status: true, current_password: true })
   .partial();
 
-export const enfermeraUpdateSchema = enfermeraSchema
+export const enfermeraUpdateSchema = baseUser
+  .extend({
+    role: z.literal(roleEnumSchema.enum.ENFERMERA),
+    enfermera: datosEnfermeraUpdateSchema.optional(),
+  })
   .omit({ status: true, current_password: true })
   .partial();
 

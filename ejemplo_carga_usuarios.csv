@@ -1,0 +1,8 @@
+email,current_password,fullname,documentNumber,date_of_birth,role,phone,gender,status,medico.specialty,medico.license_number,enfermera.department,paciente.gender,paciente.address,administrador.nivelAcceso,administrador.departamentoAsignado
+juan.perez@hospital.com,doctor2024,Dr. Juan Carlos Pérez Martínez,1012345678,1980-03-15,MEDICO,3001234567,M,PENDING,Cardiología,MED-12345,,,,,,
+maria.garcia@hospital.com,doctor2024,Dra. María Fernanda García López,1023456789,1985-07-22,MEDICO,3012345678,F,PENDING,Pediatría,MED-54321,,,,,,
+laura.rodriguez@hospital.com,nurse2024,Laura Patricia Rodríguez Gómez,1045678901,1988-09-12,ENFERMERA,3201234567,F,PENDING,,,Emergencias,,,,
+carlos.martinez@hospital.com,nurse2024,Carlos Andrés Martínez Silva,1056789012,1990-05-18,ENFERMERA,3212345678,M,PENDING,,,Pediatría,,,,
+ana.lopez@paciente.com,paciente123,Ana Sofía López Ramírez,1067890123,1995-11-25,PACIENTE,3123456789,F,PENDING,,,,,F,Calle 25 #10-15 Manizales,,
+pedro.sanchez@paciente.com,paciente456,Pedro Antonio Sánchez Torres,1078901234,1978-02-08,PACIENTE,3134567890,M,PENDING,,,,,M,Carrera 23 #45-67 Manizales,,
+admin@hospital.com,admin2024,Administrador Principal del Sistema,1089012345,1982-06-30,ADMINISTRADOR,3145678901,M,PENDING,,,,,,,Alto,Administración General

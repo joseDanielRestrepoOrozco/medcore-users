@@ -28,6 +28,14 @@ const createNurse = async (req: Request, res: Response, next: NextFunction) => {
         res.status(500).json({ error: 'Error sending verification email' });
         return;
       }
+      // Manejar error de departamento no encontrado
+      if (
+        error.message.includes('Department') &&
+        error.message.includes('not found')
+      ) {
+        res.status(404).json({ error: error.message });
+        return;
+      }
     }
     next(error);
   }
@@ -92,6 +100,14 @@ const updateNurse = async (req: Request, res: Response, next: NextFunction) => {
     if (error instanceof Error) {
       if (error.message === 'User not found') {
         res.status(404).json({ error: 'Nurse not found' });
+        return;
+      }
+      // Manejar error de departamento no encontrado
+      if (
+        error.message.includes('Department') &&
+        error.message.includes('not found')
+      ) {
+        res.status(404).json({ error: error.message });
         return;
       }
     }
