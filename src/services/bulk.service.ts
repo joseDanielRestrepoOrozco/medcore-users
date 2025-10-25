@@ -1,7 +1,6 @@
 import { PrismaClient, type Users } from '@prisma/client';
 import bcrypt from 'bcrypt';
 import { ZodError } from 'zod';
-import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import emailConfig, {
   generateVerificationCode,
 } from '../config/emailConfig.js';
@@ -12,6 +11,7 @@ import {
   findSpecialtyByName,
   findDepartmentByName,
 } from './specialty.service.js';
+import { Prisma } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
@@ -137,17 +137,6 @@ class BulkService {
       };
     }
 
-    // Transformar campos anidados para administrador
-    if (
-      row['administrador.nivelAcceso'] ||
-      row['administrador.departamentoAsignado']
-    ) {
-      transformed.administrador = {
-        nivelAcceso: row['administrador.nivelAcceso'] || '',
-        departamentoAsignado: row['administrador.departamentoAsignado'] || '',
-      };
-    }
-
     return transformed;
   }
 
@@ -175,13 +164,13 @@ class BulkService {
 
       // Preparar datos base
       const userData: Record<string, unknown> = {
-        email: data.email,
         current_password: await bcrypt.hash(data.current_password, 10),
+        date_of_birth: new Date(data.date_of_birth),
+        age,
+        email: data.email,
         fullname: data.fullname,
         documentNumber: data.documentNumber,
         role: data.role,
-        date_of_birth: new Date(data.date_of_birth),
-        age,
         phone: data.phone,
         gender: data.gender,
         status: data.status,
@@ -200,7 +189,7 @@ class BulkService {
           };
         }
         userData.medico = {
-          especialtyId: specialtyId,
+          specialtyId: specialtyId,
           license_number: data.medico.license_number,
         };
       } else if (
@@ -225,11 +214,6 @@ class BulkService {
         // Para pacientes, el campo paciente es opcional pero gender es requerido
         if ('paciente' in data && data.paciente) {
           userData.paciente = data.paciente;
-        }
-      } else if (data.role === 'ADMINISTRADOR') {
-        // Para administradores, los datos son opcionales
-        if ('administrador' in data && data.administrador) {
-          userData.administrador = data.administrador;
         }
       }
 
@@ -293,17 +277,21 @@ class BulkService {
     if (err instanceof ZodError) {
       const flattened = err.flatten();
       const fieldErrors = Object.values(flattened.fieldErrors).flat();
-      const allErrors = [...flattened.formErrors, ...fieldErrors].filter(Boolean);
+      const allErrors = [...flattened.formErrors, ...fieldErrors].filter(
+        Boolean
+      );
       return allErrors.join('; ') || 'Error de validación';
     }
 
     // Manejo de errores de Prisma (p. ej. P2002: unique constraint)
-    if (err instanceof PrismaClientKnownRequestError) {
+    if (err instanceof Prisma.PrismaClientKnownRequestError) {
       if (err.code === 'P2002') {
         // err.meta?.target normalmente contiene el campo único
         const metaObj = err.meta as unknown as { target?: unknown } | undefined;
         const target = metaObj?.target;
-        const targetStr = Array.isArray(target) ? target.join(', ') : String(target ?? 'campo único');
+        const targetStr = Array.isArray(target)
+          ? target.join(', ')
+          : String(target ?? 'campo único');
         return `Conflicto de clave única (${targetStr})`;
       }
       return `Error de base de datos (${err.code})`;

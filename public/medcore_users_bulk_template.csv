@@ -1,0 +1,9 @@
+email,current_password,fullname,documentNumber,role,date_of_birth,phone,gender,status,medico.specialty,medico.license_number,enfermera.department,paciente.gender
+admin.general@medcore.test,Admin.1234,Admin General,900000001,ADMINISTRADOR,1985-04-12,3000000001,MASCULINO,ACTIVE,,,,
+admin.clinico@medcore.test,Admin.1234,Admin Clínico,900000002,ADMINISTRADOR,1988-09-23,3000000002,FEMENINO,PENDING,,,,
+juan.cardiologia@medcore.test,Medico.1234,Juan Gómez,800000002,MEDICO,1987-07-10,3010000002,MASCULINO,ACTIVE,Cardiología,JG-20002,,
+ana.urgencias@medcore.test,Enfer.1234,Ana López,700000001,ENFERMERA,1994-03-20,3020000001,FEMENINO,ACTIVE,,,Urgencias,
+paciente1@medcore.test,Paciente.1234,Pedro Sánchez,600000001,PACIENTE,2000-06-18,3030000001,MASCULINO,ACTIVE,,,,MASCULINO
+paciente2@medcore.test,Paciente.1234,Laura Martínez,600000002,PACIENTE,1998-01-09,3030000002,FEMENINO,PENDING,,,,FEMENINO
+paciente3@medcore.test,Paciente.1234,Andrés Castillo,600000003,PACIENTE,1982-08-30,3030000003,MASCULINO,INACTIVE,,,,MASCULINO
+paciente4@medcore.test,Paciente.1234,Sofía Herrera,600000004,PACIENTE,2005-04-25,3030000004,FEMENINO,ACTIVE,,,,FEMENINO

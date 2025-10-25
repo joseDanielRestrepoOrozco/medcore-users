@@ -9,8 +9,10 @@ const prisma = new PrismaClient();
  * @returns El ID de la especialidad si existe, null si no
  */
 export const findSpecialtyByName = async (
-  specialtyName: string
+  specialtyName?: string
 ): Promise<string | null> => {
+  if (!specialtyName) return null;
+
   const normalizedSearch = normalizeString(specialtyName);
 
   // Obtener todas las especialidades y buscar por nombre normalizado
@@ -31,8 +33,10 @@ export const findSpecialtyByName = async (
  * @returns El ID del departamento si existe, null si no
  */
 export const findDepartmentByName = async (
-  departmentName: string
+  departmentName?: string
 ): Promise<string | null> => {
+  if (!departmentName) return null;
+
   const normalizedSearch = normalizeString(departmentName);
 
   // Obtener todos los departamentos y buscar por nombre normalizado

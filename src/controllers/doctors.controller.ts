@@ -60,6 +60,7 @@ const createDoctor = async (
         return;
       }
     }
+    
     next(error);
   }
 };

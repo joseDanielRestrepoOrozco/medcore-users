@@ -1,7 +1,7 @@
 import express from 'express';
-import usersController from '../controllers/users.controller.js';
 import { requireRoles } from '../middleware/auth.js';
 import unknownEndpoint from '../middleware/unknownEndpoint.js';
+import patientsController from '../controllers/patients.controller.js';
 
 const patientsRouter = express.Router();
 
@@ -9,42 +9,42 @@ const patientsRouter = express.Router();
 patientsRouter.get(
   '/search/advanced',
   requireRoles(['MEDICO', 'ENFERMERA', 'ADMINISTRADOR']),
-  usersController.searchAdvanced
+  patientsController.searchAdvanced
 );
 
 // Crear un nuevo paciente
 patientsRouter.post(
   '/',
   requireRoles(['ADMINISTRADOR']),
-  usersController.createPatient
+  patientsController.createPatient
 );
 
 // Listar todos los pacientes
 patientsRouter.get(
   '/',
   requireRoles(['MEDICO', 'ENFERMERA', 'ADMINISTRADOR']),
-  usersController.listPatients
+  patientsController.listPatients
 );
 
 // Obtener un paciente por ID
 patientsRouter.get(
   '/:id',
   requireRoles(['MEDICO', 'ENFERMERA', 'ADMINISTRADOR']),
-  usersController.getPatientById
+  patientsController.getPatientById
 );
 
 // Actualizar un paciente completo
 patientsRouter.put(
   '/:id',
   requireRoles(['ADMINISTRADOR']),
-  usersController.updatePatient
+  patientsController.updatePatient
 );
 
 // Actualizar solo el estado de un paciente
 patientsRouter.patch(
   '/:id/state',
   requireRoles(['ADMINISTRADOR']),
-  usersController.updatePatientState
+  patientsController.updatePatientState
 );
 
 patientsRouter.use(unknownEndpoint);

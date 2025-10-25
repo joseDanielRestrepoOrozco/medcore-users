@@ -9,31 +9,6 @@ import {
 } from './specialty.service.js';
 
 const prisma = new PrismaClient();
-
-/**
- * Verifica si un usuario existe por email
- */
-export const checkUserExists = async (email: string): Promise<boolean> => {
-  const user = await prisma.users.findUnique({
-    where: { email },
-    select: { id: true },
-  });
-  return !!user;
-};
-
-/**
- * Verifica si un usuario existe por número de documento
- */
-export const checkDocumentExists = async (
-  documentNumber: string
-): Promise<boolean> => {
-  const user = await prisma.users.findUnique({
-    where: { documentNumber },
-    select: { id: true },
-  });
-  return !!user;
-};
-
 /**
  * Obtiene todos los usuarios con filtros y paginación
  */
@@ -246,13 +221,10 @@ export const updateUser = async (
   let date_of_birth: Date | undefined;
   let age: number | undefined;
 
-  if (updateData.date_of_birth || updateData.date_of_birth === null) {
-    date_of_birth = updateData.date_of_birth
-      ? new Date(updateData.date_of_birth as string)
-      : undefined;
-
-    age = date_of_birth ? calculateAge(date_of_birth.toISOString()) : undefined;
-    if (age) validateAge.parse(age);
+  if (updateData.date_of_birth) {
+    date_of_birth = new Date(updateData.date_of_birth as string);
+    age = calculateAge(date_of_birth.toISOString());
+    validateAge.parse(age);
   }
 
   // Preparar datos embebidos según el rol
@@ -382,46 +354,10 @@ export const createUser = async (userData: {
   role: Role;
   gender?: string;
   phone?: string;
-  medico?: { specialty: string; license_number: string };
-  enfermera?: { department: string };
+  medico?: { specialtyId: string; license_number: string };
+  enfermera?: { departmentId: string };
   paciente?: { gender: string; address?: string };
-  administrador?: { nivelAcceso?: string; departamentoAsignado?: string };
-  [key: string]: unknown;
 }) => {
-  // Verificar si el usuario ya existe por email
-  const userExists = await checkUserExists(userData.email);
-  if (userExists) {
-    throw new Error('User already exists');
-  }
-
-  // Verificar si el documento ya existe
-  const documentExists = await checkDocumentExists(userData.documentNumber);
-  if (documentExists) {
-    throw new Error('Document number already exists');
-  }
-
-  // Validar y buscar especialidad si es médico
-  let specialtyId: string | null = null;
-  if (userData.role === 'MEDICO' && userData.medico?.specialty) {
-    specialtyId = await findSpecialtyByName(userData.medico.specialty);
-    if (!specialtyId) {
-      throw new Error(
-        `Specialty '${userData.medico.specialty}' not found. Please verify the specialty name.`
-      );
-    }
-  }
-
-  // Validar y buscar departamento si es enfermera
-  let departmentId: string | null = null;
-  if (userData.role === 'ENFERMERA' && userData.enfermera?.department) {
-    departmentId = await findDepartmentByName(userData.enfermera.department);
-    if (!departmentId) {
-      throw new Error(
-        `Department '${userData.enfermera.department}' not found. Please verify the department name.`
-      );
-    }
-  }
-
   // Calcular y validar edad
   const dateOfBirth =
     typeof userData.date_of_birth === 'string'
@@ -438,61 +374,15 @@ export const createUser = async (userData: {
   // Hash de la contraseña
   const hashedPassword = await bcrypt.hash(userData.current_password, 10);
 
-  // Preparar datos para creación
-  const createData: {
-    email: string;
-    fullname: string;
-    documentNumber: string;
-    current_password: string;
-    date_of_birth: Date;
-    age: number;
-    role: Role;
-    gender?: string;
-    phone?: string;
-    verificationCode: string;
-    verificationCodeExpires: Date;
-    medico?: { especialtyId: string; license_number: string };
-    enfermera?: { departmentId: string };
-    paciente?: { gender: string; address?: string };
-    administrador?: { nivelAcceso?: string; departamentoAsignado?: string };
-  } = {
-    email: userData.email,
-    fullname: userData.fullname,
-    documentNumber: userData.documentNumber,
-    current_password: hashedPassword,
-    date_of_birth: new Date(userData.date_of_birth),
-    age,
-    role: userData.role,
-    verificationCode,
-    verificationCodeExpires,
-  };
-
-  if (userData.gender) createData.gender = userData.gender;
-  if (userData.phone) createData.phone = userData.phone;
-
-  // Añadir campos embebidos según el rol
-  if (userData.role === 'MEDICO' && userData.medico && specialtyId) {
-    createData.medico = {
-      especialtyId: specialtyId,
-      license_number: userData.medico.license_number,
-    };
-  } else if (
-    userData.role === 'ENFERMERA' &&
-    userData.enfermera &&
-    departmentId
-  ) {
-    createData.enfermera = {
-      departmentId: departmentId,
-    };
-  } else if (userData.role === 'PACIENTE' && userData.paciente) {
-    createData.paciente = userData.paciente;
-  } else if (userData.role === 'ADMINISTRADOR' && userData.administrador) {
-    createData.administrador = userData.administrador;
-  }
-
   // Crear usuario en la base de datos
   const newUser = await prisma.users.create({
-    data: createData,
+    data: {
+      ...userData,
+      age,
+      current_password: hashedPassword,
+      verificationCode,
+      verificationCodeExpires,
+    },
   });
 
   // Enviar email de verificación
@@ -522,8 +412,6 @@ export const createUser = async (userData: {
 };
 
 export default {
-  checkUserExists,
-  checkDocumentExists,
   getAllUsers,
   searchPatientsAdvanced,
   getUserById,

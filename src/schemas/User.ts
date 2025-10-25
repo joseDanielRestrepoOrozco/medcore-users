@@ -70,13 +70,20 @@ export const validateAge = z.number().min(1).max(120);
 // SCHEMAS DE TIPOS COMPUESTOS (EMBEBIDOS)
 // ============================================
 
-// Datos específicos de Médicos - Para creación (recibe nombre de especialidad)
-export const datosMedicoSchema = z.object({
-  specialty: z
-    .string()
-    .min(1, { message: 'El nombre de la especialidad es requerido' }),
-  license_number: z.string(),
-});
+// Datos específicos de Médicos - Para creación (acepta nombre o ID de especialidad)
+export const datosMedicoSchema = z
+  .object({
+    specialty: z.string().optional(),
+    specialtyId: z.string().optional(),
+    license_number: z.string(),
+  })
+  .refine(
+    data => {
+      // Al menos uno de los dos debe estar presente
+      return data.specialty || data.specialtyId;
+    },
+    { message: 'Debe proporcionar specialty (nombre) o specialtyId' }
+  );
 
 // Datos específicos de Médicos - Para actualización (acepta specialtyId)
 export const datosMedicoUpdateSchema = z
@@ -94,12 +101,19 @@ export const datosMedicoUpdateSchema = z
     { message: 'Debe proporcionar specialty o specialtyId' }
   );
 
-// Datos específicos de Enfermeras - Para creación (recibe nombre de departamento)
-export const datosEnfermeraSchema = z.object({
-  department: z
-    .string()
-    .min(1, { message: 'El nombre del departamento es requerido' }),
-});
+// Datos específicos de Enfermeras - Para creación (acepta nombre o ID de departamento)
+export const datosEnfermeraSchema = z
+  .object({
+    department: z.string().optional(),
+    departmentId: z.string().optional(),
+  })
+  .refine(
+    data => {
+      // Al menos uno de los dos debe estar presente
+      return data.department || data.departmentId;
+    },
+    { message: 'Debe proporcionar department (nombre) o departmentId' }
+  );
 
 // Datos específicos de Enfermeras - Para actualización (acepta departmentId)
 export const datosEnfermeraUpdateSchema = z

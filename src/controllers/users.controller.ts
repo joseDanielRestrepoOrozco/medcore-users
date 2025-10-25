@@ -2,13 +2,14 @@ import { type NextFunction, type Request, type Response } from 'express';
 import {
   getUsersFiltersSchema,
   getUsersByRoleFiltersSchema,
-  pacienteSchema,
-  pacienteUpdateSchema,
   getSpecialtyFiltersSchema,
-  advancedSearchSchema,
-  statusSchema,
+  userSchema,
 } from '../schemas/User.js';
 import * as usersService from '../services/users.service.js';
+import {
+  findSpecialtyByName,
+  findDepartmentByName,
+} from '../services/specialty.service.js';
 
 /**
  * Obtener todos los usuarios con filtros y paginación
@@ -46,41 +47,6 @@ const getById = async (
 
     res.status(200).json(user);
   } catch (error: unknown) {
-    next(error);
-  }
-};
-
-/**
- * Actualizar un usuario
- */
-const update = async (
-  req: Request,
-  res: Response,
-  next: NextFunction
-): Promise<void> => {
-  try {
-    const { id } = req.params as { id: string };
-    const updateData = pacienteUpdateSchema.parse(req.body);
-
-    const updatedUser = await usersService.updateUser(id, updateData);
-
-    if (!updatedUser) {
-      res.status(404).json({ error: 'User not found' });
-      return;
-    }
-
-    res.status(200).json({
-      message: 'User updated successfully',
-      user: updatedUser,
-    });
-  } catch (error: unknown) {
-    console.error('Error updating user:', error);
-    if (error instanceof Error) {
-      if (error.message === 'User not found') {
-        res.status(404).json({ error: 'User not found' });
-        return;
-      }
-    }
     next(error);
   }
 };
@@ -127,7 +93,7 @@ const getStats = async (
 };
 
 /**
- * Crear un nuevo usuario (por defecto paciente)
+ * Crear un nuevo usuario (genérico para todos los roles)
  */
 const create = async (
   req: Request,
@@ -135,8 +101,97 @@ const create = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    const newUser = pacienteSchema.parse({ ...req.body, role: 'PACIENTE' });
-    const createdUser = await usersService.createUser(newUser);
+    // Parsear y validar según el rol
+    const userData = userSchema.parse(req.body);
+
+    // Preparar datos transformados para el servicio
+    const transformedData: {
+      email: string;
+      fullname: string;
+      documentNumber: string;
+      current_password: string;
+      date_of_birth: Date;
+      role: 'MEDICO' | 'ENFERMERA' | 'PACIENTE' | 'ADMINISTRADOR';
+      gender?: string;
+      phone?: string;
+      medico?: { specialtyId: string; license_number: string };
+      enfermera?: { departmentId: string };
+      paciente?: { gender: string; address?: string };
+      administrador?: { nivelAcceso?: string; departamentoAsignado?: string };
+    } = {
+      email: userData.email,
+      fullname: userData.fullname,
+      documentNumber: userData.documentNumber,
+      current_password: userData.current_password,
+      date_of_birth: userData.date_of_birth,
+      role: userData.role,
+      gender: userData.gender,
+      phone: userData.phone,
+    };
+
+    // Transformaciones específicas por rol
+    if (userData.role === 'MEDICO') {
+      const medicoData = userData.medico;
+
+      // Si viene specialty (nombre), convertir a specialtyId
+      if ('specialty' in medicoData && medicoData.specialty) {
+        const specialtyId = await findSpecialtyByName(medicoData.specialty);
+        if (!specialtyId) {
+          res.status(400).json({
+            error: 'Invalid specialty',
+            message: `Specialty '${medicoData.specialty}' not found. Please verify the specialty name.`,
+          });
+          return;
+        }
+        transformedData.medico = {
+          specialtyId,
+          license_number: medicoData.license_number,
+        };
+      } else {
+        // Si no viene specialty, asumimos que viene specialtyId (el schema ya lo valida)
+        transformedData.medico = {
+          specialtyId: (
+            medicoData as { specialtyId: string; license_number: string }
+          ).specialtyId,
+          license_number: medicoData.license_number,
+        };
+      }
+    } else if (userData.role === 'ENFERMERA') {
+      const enfermeraData = userData.enfermera;
+
+      // Si viene department (nombre), convertir a departmentId
+      if ('department' in enfermeraData && enfermeraData.department) {
+        const departmentId = await findDepartmentByName(
+          enfermeraData.department
+        );
+        if (!departmentId) {
+          res.status(400).json({
+            error: 'Invalid department',
+            message: `Department '${enfermeraData.department}' not found. Please verify the department name.`,
+          });
+          return;
+        }
+        transformedData.enfermera = {
+          departmentId,
+        };
+      } else {
+        // Si no viene department, asumimos que viene departmentId (el schema ya lo valida)
+        transformedData.enfermera = {
+          departmentId: (enfermeraData as { departmentId: string })
+            .departmentId,
+        };
+      }
+    } else if (userData.role === 'PACIENTE') {
+      if (userData.paciente) {
+        transformedData.paciente = userData.paciente;
+      }
+    } else if (userData.role === 'ADMINISTRADOR') {
+      if (userData.administrador) {
+        transformedData.administrador = userData.administrador;
+      }
+    }
+
+    const createdUser = await usersService.createUser(transformedData);
 
     res.status(201).json({
       ...createdUser,
@@ -157,7 +212,7 @@ const create = async (
         return;
       }
     }
-    console.error('[signup] unhandled error', error);
+    console.error('[create] unhandled error', error);
     next(error);
   }
 };
@@ -196,200 +251,12 @@ const getUsersBySpecialty = async (
   }
 };
 
-// ============================================
-// FUNCIONES ESPECÍFICAS PARA PACIENTES (migradas de medcore-patients)
-// ============================================
-
-/**
- * Crear un nuevo paciente (usuario con role PACIENTE)
- */
-const createPatient = async (
-  req: Request,
-  res: Response,
-  next: NextFunction
-): Promise<void> => {
-  try {
-    const patientData = pacienteSchema.parse({ ...req.body, role: 'PACIENTE' });
-    
-    const createdPatient = await usersService.createUser(patientData);
-
-    res.status(201).json({
-      message: 'Paciente creado',
-      patient: createdPatient,
-    });
-  } catch (error: unknown) {
-    if (error instanceof Error) {
-      if (error.message === 'User already exists') {
-        res.status(409).json({
-          error: 'Paciente ya existe',
-          message: 'Ya existe un paciente con este correo electrónico',
-        });
-        return;
-      }
-      if (error.message === 'Document number already exists') {
-        res.status(409).json({
-          error: 'Paciente ya existe',
-          message: 'Ya existe un paciente con este número de documento',
-        });
-        return;
-      }
-    }
-    next(error);
-  }
-};
-
-/**
- * Listar pacientes con filtros y paginación
- */
-const listPatients = async (
-  req: Request,
-  res: Response,
-  next: NextFunction
-): Promise<void> => {
-  try {
-    const filters = getUsersFiltersSchema.parse(req.query);
-    const result = await usersService.getAllUsers({
-      ...filters,
-      role: 'PACIENTE',
-    });
-
-    res.status(200).json({
-      patients: result.users,
-      pagination: result.pagination,
-    });
-  } catch (error: unknown) {
-    next(error);
-  }
-};
-
-/**
- * Obtener un paciente por ID
- */
-const getPatientById = async (
-  req: Request,
-  res: Response,
-  next: NextFunction
-): Promise<void> => {
-  try {
-    const { id } = req.params;
-
-    if (!id) {
-      res.status(400).json({ error: 'ID de paciente requerido' });
-      return;
-    }
-
-    const patient = await usersService.getPatientById(id);
-
-    if (!patient) {
-      res.status(404).json({ error: 'Paciente no encontrado' });
-      return;
-    }
-
-    res.status(200).json({ patient });
-  } catch (error: unknown) {
-    next(error);
-  }
-};
-
-/**
- * Actualizar un paciente
- */
-const updatePatient = async (
-  req: Request,
-  res: Response,
-  next: NextFunction
-): Promise<void> => {
-  try {
-    const { id } = req.params;
-
-    if (!id) {
-      res.status(400).json({ error: 'ID de paciente requerido' });
-      return;
-    }
-
-    const data = pacienteUpdateSchema.parse(req.body);
-
-    const updated = await usersService.updateUser(id, data, 'PACIENTE');
-
-    if (!updated) {
-      res.status(404).json({ error: 'Paciente no encontrado' });
-      return;
-    }
-
-    res.status(200).json({ message: 'Paciente actualizado', patient: updated });
-  } catch (error: unknown) {
-    next(error);
-  }
-};
-
-/**
- * Actualizar el estado de un paciente
- */
-const updatePatientState = async (
-  req: Request,
-  res: Response,
-  next: NextFunction
-): Promise<void> => {
-  try {
-    const { id } = req.params;
-
-    if (!id) {
-      res.status(400).json({ error: 'ID de paciente requerido' });
-      return;
-    }
-
-    const { status } = statusSchema.parse(req.body);
-
-    const updated = await usersService.updateUser(
-      id,
-      { status },
-      'PACIENTE'
-    );
-
-    if (!updated) {
-      res.status(404).json({ error: 'Paciente no encontrado' });
-      return;
-    }
-
-    res.status(200).json({ message: 'Estado actualizado', patient: updated });
-  } catch (error: unknown) {
-    next(error);
-  }
-};
-
-/**
- * Búsqueda avanzada de pacientes
- */
-const searchAdvanced = async (
-  req: Request,
-  res: Response,
-  next: NextFunction
-): Promise<void> => {
-  try {
-    const filters = advancedSearchSchema.parse(req.query);
-
-    const result = await usersService.searchPatientsAdvanced(filters);
-
-    res.status(200).json(result);
-  } catch (error: unknown) {
-    next(error);
-  }
-};
-
 export default {
   getAll,
   getById,
-  update,
   remove,
   getStats,
   create,
   getUsersByRole,
   getUsersBySpecialty,
-  // Funciones de pacientes
-  createPatient,
-  listPatients,
-  getPatientById,
-  updatePatient,
-  updatePatientState,
-  searchAdvanced,
 };

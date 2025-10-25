@@ -6,7 +6,6 @@ async function bulkImportPatients(
   res: Response,
   next: NextFunction
 ) {
-  console.log('Received bulk import request');
   try {
     const file = req.file as Express.Multer.File | undefined;
     if (!file) {

@@ -53,7 +53,7 @@ model Especialty {
 
 // Tipo compuesto para datos específicos de Médicos
 type DatosMedico {
-  especialtyId String @db.ObjectId
+  specialtyId String @db.ObjectId
   license_number String
 }
 
@@ -66,12 +66,6 @@ type DatosEnfermera {
 type DatosPaciente {
   gender         String
   address        String?
-}
-
-// Tipo compuesto para datos específicos de Administradores (opcional, para futuras expansiones)
-type DatosAdministrador {
-  nivelAcceso      String?
-  departamentoAsignado String?
 }
 
 // ============================================
@@ -97,7 +91,6 @@ model Users {
   medico                  DatosMedico?
   enfermera               DatosEnfermera?
   paciente                DatosPaciente?
-  administrador           DatosAdministrador?
   
   createdAt               DateTime            @default(now())
   updatedAt               DateTime            @updatedAt
