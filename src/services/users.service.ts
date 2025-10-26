@@ -15,12 +15,13 @@ const prisma = new PrismaClient();
 export const getAllUsers = async (filters: {
   page: number;
   limit: number;
+  q?: string; // Parámetro de búsqueda por fullname o documentNumber
   status?: UserStatus;
   role?: Role;
   specialtyId?: string;
   gender?: string;
 }) => {
-  const { page, limit, status, role, specialtyId, gender } = filters;
+  const { page, limit, q, status, role, specialtyId, gender } = filters;
   const skip = (page - 1) * limit;
 
   // Construcción dinámica del whereClause
@@ -29,6 +30,24 @@ export const getAllUsers = async (filters: {
   if (status) whereClause.status = status;
   if (role) whereClause.role = role;
   if (gender) whereClause.gender = gender;
+
+  // Búsqueda por fullname o documentNumber
+  if (q) {
+    whereClause.OR = [
+      {
+        fullname: {
+          contains: q,
+          mode: 'insensitive',
+        },
+      },
+      {
+        documentNumber: {
+          contains: q,
+          mode: 'insensitive',
+        },
+      },
+    ];
+  }
 
   // Filtro de especialidad para médicos usando equals
   if (specialtyId && role === 'MEDICO') {

@@ -6,6 +6,7 @@ import { z } from 'zod';
 
 // Schema para filtros de búsqueda generales (todos los campos opcionales)
 export const getUsersFiltersSchema = z.object({
+  q: z.string().optional(), // Parámetro de búsqueda por fullname o documentNumber
   status: z.enum(['PENDING', 'ACTIVE', 'INACTIVE']).optional(),
   page: z.coerce.number().int().positive().optional().default(1),
   limit: z.coerce.number().int().positive().max(100).optional().default(10),
