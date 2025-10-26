@@ -5,6 +5,9 @@ import {
   getDoctorsFiltersSchema,
 } from '../schemas/User.js';
 import * as usersService from '../services/users.service.js';
+import { findSpecialtyByName } from '../services/specialty.service.js';
+const { PrismaClient } = await import('@prisma/client');
+const prisma = new PrismaClient();
 
 const getAllDoctors = async (
   req: Request,
@@ -33,10 +36,45 @@ const createDoctor = async (
   next: NextFunction
 ) => {
   try {
-    const newDoctorData = medicoSchema.parse({ ...req.body, role: 'MEDICO' });
+    const parsed = medicoSchema.parse({ ...req.body, role: 'MEDICO' });
+    let specialtyId: string | null | undefined;
 
+    // verificar la existencia de la especialidad
+    if (parsed.medico.specialty) {
+      specialtyId = await findSpecialtyByName(parsed.medico.specialty);
+      if (!specialtyId) {
+        res
+          .status(404)
+          .json({ error: `Specialty '${parsed.medico.specialty}' not found.` });
+        return;
+      }
+    } else if (parsed.medico.specialtyId) {
+      const found = await prisma.specialty.findUnique({
+        where: { id: parsed.medico.specialtyId },
+      });
+      if (!found) {
+        res.status(404).json({
+          error: `Specialty with id '${parsed.medico.specialtyId}' not found.`,
+        });
+        return;
+      }
+      specialtyId = parsed.medico.specialtyId;
+    } else {
+      res.status(400).json({
+        error:
+          'You must provide either specialty (name) or specialtyId for a doctor.',
+      });
+      return;
+    }
+    // Construir el objeto para el servicio con specialtyId
+    const newDoctorData = {
+      ...parsed,
+      medico: {
+        specialtyId,
+        license_number: parsed.medico.license_number,
+      },
+    };
     const createdDoctor = await usersService.createUser(newDoctorData);
-
     res.status(201).json({
       ...createdDoctor,
       message: 'Doctor creado. Código enviado al correo.',
@@ -51,16 +89,7 @@ const createDoctor = async (
         res.status(500).json({ error: 'Error sending verification email' });
         return;
       }
-      // Manejar error de especialidad no encontrada
-      if (
-        error.message.includes('Specialty') &&
-        error.message.includes('not found')
-      ) {
-        res.status(404).json({ error: error.message });
-        return;
-      }
     }
-    
     next(error);
   }
 };

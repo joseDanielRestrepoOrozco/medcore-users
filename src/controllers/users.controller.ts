@@ -116,7 +116,7 @@ const create = async (
       phone?: string;
       medico?: { specialtyId: string; license_number: string };
       enfermera?: { departmentId: string };
-      paciente?: { gender: string; address?: string };
+      paciente?: { address?: string };
       administrador?: { nivelAcceso?: string; departamentoAsignado?: string };
     } = {
       email: userData.email,
@@ -241,7 +241,7 @@ const getUsersBySpecialty = async (
     const users = await usersService.getAllUsers({
       role: 'MEDICO',
       status: filters.status,
-      especialtyId: filters.especialtyId,
+      specialtyId: filters.specialtyId,
       page: filters.page,
       limit: filters.limit,
     });

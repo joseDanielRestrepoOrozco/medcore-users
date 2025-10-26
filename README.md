@@ -43,7 +43,7 @@ Users (colección principal)
 │   ├── phone
 │   └── status (PENDING | ACTIVE | INACTIVE)
 ├── medico (embebido - solo para MEDICO)
-│   ├── especialtyId (ref a Especialty)
+│   ├── specialtyId (ref a Specialty)
 │   └── license_number
 ├── enfermera (embebido - solo para ENFERMERA)
 │   └── departmentId (ref a Department)
@@ -57,9 +57,9 @@ Users (colección principal)
 Department (colección)
 ├── name
 ├── description
-└── especialties (relación con Especialty)
+└── specialties (relación con Specialty)
 
-Especialty (colección)
+Specialty (colección)
 ├── name
 ├── description
 └── departmentId (ref a Department)
@@ -191,7 +191,7 @@ Authorization: Bearer <token>
   "phone": "+57 300 123 4567",
   "date_of_birth": "1980-05-15",
   "medico": {
-    "especialtyId": "507f1f77bcf86cd799439011",
+    "specialtyId": "507f1f77bcf86cd799439011",
     "license_number": "MED-12345"
   }
 }
@@ -262,7 +262,7 @@ Este microservicio ahora consolida la funcionalidad de `medcore-patients`. Ver d
 ⚠️ **Atención**: Los siguientes cambios no son compatibles hacia atrás:
 
 - Campo `documentNumber` ahora es obligatorio
-- `specialization` → `medico.especialtyId` (requiere ObjectId)
+- `specialization` → `medico.specialtyId` (requiere ObjectId)
 - `department` → `enfermera.departmentId` (requiere ObjectId)
 - `license_number` → `medico.license_number`
 - Endpoints de patients movidos de `/api/patients` a `/api/users/patients`

@@ -17,10 +17,10 @@ export const getAllUsers = async (filters: {
   limit: number;
   status?: UserStatus;
   role?: Role;
-  especialtyId?: string;
+  specialtyId?: string;
   gender?: string;
 }) => {
-  const { page, limit, status, role, especialtyId, gender } = filters;
+  const { page, limit, status, role, specialtyId, gender } = filters;
   const skip = (page - 1) * limit;
 
   // Construcción dinámica del whereClause
@@ -31,10 +31,10 @@ export const getAllUsers = async (filters: {
   if (gender) whereClause.gender = gender;
 
   // Filtro de especialidad para médicos usando equals
-  if (especialtyId && role === 'MEDICO') {
+  if (specialtyId && role === 'MEDICO') {
     whereClause.medico = {
       is: {
-        especialtyId: especialtyId,
+        specialtyId: specialtyId,
       },
     };
   }
@@ -184,7 +184,9 @@ export const getPatientById = async (id: string) => {
 };
 
 /**
- * Actualiza un usuario por ID
+ * Actualiza un usuario por ID siguiendo las mejores prácticas de Prisma
+ * - Campos primitivos/enums: actualización directa de solo los campos enviados
+ * - Tipos compuestos opcionales: merge manual + upsert para preservar datos no enviados
  */
 export const updateUser = async (
   id: string,
@@ -194,91 +196,146 @@ export const updateUser = async (
   const whereClause: { id: string; role?: Role } = { id };
   if (role) whereClause.role = role;
 
+  // 1. Obtener el usuario actual con todos sus datos
   const existingUser = await prisma.users.findFirst({
     where: whereClause,
-    select: { id: true, role: true },
   });
 
   if (!existingUser) {
     return null;
   }
 
-  let status: UserStatus | undefined;
+  // 2. Preparar campos primitivos y enums para actualización directa
+  const primitiveFields: Record<string, unknown> = {};
+
+  // Procesar status
   if (updateData.status) {
     switch (updateData.status) {
       case 'ACTIVE':
-        status = UserStatus.ACTIVE;
+        primitiveFields.status = UserStatus.ACTIVE;
         break;
       case 'PENDING':
-        status = UserStatus.PENDING;
+        primitiveFields.status = UserStatus.PENDING;
         break;
       case 'INACTIVE':
-        status = UserStatus.INACTIVE;
+        primitiveFields.status = UserStatus.INACTIVE;
         break;
     }
   }
 
-  let date_of_birth: Date | undefined;
-  let age: number | undefined;
-
+  // Procesar date_of_birth y age
   if (updateData.date_of_birth) {
-    date_of_birth = new Date(updateData.date_of_birth as string);
-    age = calculateAge(date_of_birth.toISOString());
+    const date_of_birth = new Date(updateData.date_of_birth as string);
+    const age = calculateAge(date_of_birth.toISOString());
     validateAge.parse(age);
+    primitiveFields.date_of_birth = date_of_birth;
+    primitiveFields.age = age;
   }
 
-  // Preparar datos embebidos según el rol
-  const dataToUpdate: Record<string, unknown> = { ...updateData };
+  // Agregar otros campos primitivos si existen
+  const primitiveFieldNames = [
+    'email',
+    'fullname',
+    'documentNumber',
+    'phone',
+    'gender',
+  ];
+  for (const field of primitiveFieldNames) {
+    if (updateData[field] !== undefined) {
+      primitiveFields[field] = updateData[field];
+    }
+  }
 
-  // Manejar campos embebidos específicos por rol
+  // 3. Procesar tipos compuestos según el rol (merge manual + upsert)
+  const compositeFields: Record<string, unknown> = {};
+
   if (existingUser.role === 'MEDICO' && updateData.medico) {
-    const medicoData = updateData.medico as Record<string, unknown>;
+    const medicoInput = updateData.medico as Record<string, unknown>;
 
-    // Si se envía specialty, buscar el specialtyId
-    if (medicoData.specialty && typeof medicoData.specialty === 'string') {
-      const specialtyId = await findSpecialtyByName(medicoData.specialty);
+    // Si se envía specialty por nombre, buscar el specialtyId
+    if (medicoInput.specialty && typeof medicoInput.specialty === 'string') {
+      const specialtyId = await findSpecialtyByName(medicoInput.specialty);
       if (!specialtyId) {
         throw new Error(
-          `Specialty '${medicoData.specialty}' not found. Please verify the specialty name.`
+          `Specialty '${medicoInput.specialty}' not found. Please verify the specialty name.`
         );
       }
-      medicoData.specialtyId = specialtyId;
-      delete medicoData.specialty;
+      medicoInput.specialtyId = specialtyId;
+      delete medicoInput.specialty;
     }
 
-    dataToUpdate.medico = medicoData;
-  } else if (existingUser.role === 'ENFERMERA' && updateData.enfermera) {
-    const enfermeraData = updateData.enfermera as Record<string, unknown>;
+    // Merge manual: combinar datos actuales con los nuevos
+    const mergedMedico = {
+      ...existingUser.medico, // datos actuales
+      ...medicoInput, // solo los campos enviados sobrescriben
+    };
 
-    // Si se envía department, buscar el departmentId
+    // Usar upsert para actualización segura del tipo compuesto
+    compositeFields.medico = {
+      upsert: {
+        set: mergedMedico,
+        update: mergedMedico,
+      },
+    };
+  } else if (existingUser.role === 'ENFERMERA' && updateData.enfermera) {
+    const enfermeraInput = updateData.enfermera as Record<string, unknown>;
+
+    // Si se envía department por nombre, buscar el departmentId
     if (
-      enfermeraData.department &&
-      typeof enfermeraData.department === 'string'
+      enfermeraInput.department &&
+      typeof enfermeraInput.department === 'string'
     ) {
-      const departmentId = await findDepartmentByName(enfermeraData.department);
+      const departmentId = await findDepartmentByName(
+        enfermeraInput.department
+      );
       if (!departmentId) {
         throw new Error(
-          `Department '${enfermeraData.department}' not found. Please verify the department name.`
+          `Department '${enfermeraInput.department}' not found. Please verify the department name.`
         );
       }
-      enfermeraData.departmentId = departmentId;
-      delete enfermeraData.department;
+      enfermeraInput.departmentId = departmentId;
+      delete enfermeraInput.department;
     }
 
-    dataToUpdate.enfermera = enfermeraData;
+    // Merge manual: combinar datos actuales con los nuevos
+    const mergedEnfermera = {
+      ...existingUser.enfermera, // datos actuales
+      ...enfermeraInput, // solo los campos enviados sobrescriben
+    };
+
+    // Usar upsert para actualización segura del tipo compuesto
+    compositeFields.enfermera = {
+      upsert: {
+        set: mergedEnfermera,
+        update: mergedEnfermera,
+      },
+    };
   } else if (existingUser.role === 'PACIENTE' && updateData.paciente) {
-    dataToUpdate.paciente = updateData.paciente;
-  } else if (
-    existingUser.role === 'ADMINISTRADOR' &&
-    updateData.administrador
-  ) {
-    dataToUpdate.administrador = updateData.administrador;
+    const pacienteInput = updateData.paciente as Record<string, unknown>;
+
+    // Merge manual: combinar datos actuales con los nuevos
+    const mergedPaciente = {
+      ...existingUser.paciente, // datos actuales
+      ...pacienteInput, // solo los campos enviados sobrescriben
+    };
+
+    // Usar upsert para actualización segura del tipo compuesto
+    compositeFields.paciente = {
+      upsert: {
+        set: mergedPaciente,
+        update: mergedPaciente,
+      },
+    };
   }
+  // Nota: ADMINISTRADOR no tiene datos embebidos en el schema actual
 
-  if (status) dataToUpdate.status = status;
-  if (date_of_birth) dataToUpdate.date_of_birth = date_of_birth;
-  if (age) dataToUpdate.age = age;
+  // 4. Combinar todos los campos para la actualización
+  const dataToUpdate = {
+    ...primitiveFields,
+    ...compositeFields,
+  };
 
+  // 5. Ejecutar la actualización con control fino
   return await prisma.users.update({
     where: { id },
     data: dataToUpdate,
@@ -356,7 +413,7 @@ export const createUser = async (userData: {
   phone?: string;
   medico?: { specialtyId: string; license_number: string };
   enfermera?: { departmentId: string };
-  paciente?: { gender: string; address?: string };
+  paciente?: { address?: string };
 }) => {
   // Calcular y validar edad
   const dateOfBirth =

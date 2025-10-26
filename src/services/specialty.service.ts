@@ -16,7 +16,7 @@ export const findSpecialtyByName = async (
   const normalizedSearch = normalizeString(specialtyName);
 
   // Obtener todas las especialidades y buscar por nombre normalizado
-  const specialties = await prisma.especialty.findMany({
+  const specialties = await prisma.specialty.findMany({
     select: { id: true, name: true },
   });
 

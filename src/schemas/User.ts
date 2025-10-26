@@ -28,7 +28,7 @@ export const getDoctorsFiltersSchema = z.object({
 
 export const getSpecialtyFiltersSchema = z.object({
   status: z.enum(['PENDING', 'ACTIVE', 'INACTIVE']).optional(),
-  especialtyId: z.string().optional(),
+  specialtyId: z.string().optional(),
   page: z.coerce.number().int().positive().optional().default(1),
   limit: z.coerce.number().int().positive().max(100).optional().default(10),
 });
@@ -132,7 +132,6 @@ export const datosEnfermeraUpdateSchema = z
 
 // Datos específicos de Pacientes
 export const datosPacienteSchema = z.object({
-  gender: z.string(),
   address: z.string().optional(),
 });
 

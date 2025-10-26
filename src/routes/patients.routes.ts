@@ -42,7 +42,7 @@ patientsRouter.put(
 
 // Actualizar solo el estado de un paciente
 patientsRouter.patch(
-  '/:id/state',
+  '/status/:id',
   requireRoles(['ADMINISTRADOR']),
   patientsController.updatePatientState
 );

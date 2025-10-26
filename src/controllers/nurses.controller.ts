@@ -2,12 +2,50 @@ import { type Request, type Response, type NextFunction } from 'express';
 import { enfermeraSchema, enfermeraUpdateSchema } from '../schemas/User.js';
 import * as usersService from '../services/users.service.js';
 
+import { findDepartmentByName } from '../services/specialty.service.js';
+import { PrismaClient } from '@prisma/client';
+const prisma = new PrismaClient();
+
 const createNurse = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const newNurseData = enfermeraSchema.parse({
-      ...req.body,
-      role: 'ENFERMERA',
-    });
+    const parsed = enfermeraSchema.parse({ ...req.body, role: 'ENFERMERA' });
+
+    // se verifica la existencia del departamento, puede ser por el nombre o por el id del departamento
+    let departmentId: string | null | undefined;
+    if (parsed.enfermera && parsed.enfermera.department) {
+      departmentId = await findDepartmentByName(parsed.enfermera.department);
+      if (!departmentId) {
+        res.status(404).json({
+          error: `Department '${parsed.enfermera.department}' not found.`,
+        });
+        return;
+      }
+    } else if (parsed.enfermera && parsed.enfermera.departmentId) {
+      const found = await prisma.department.findUnique({
+        where: { id: parsed.enfermera.departmentId },
+      });
+      if (!found) {
+        res.status(404).json({
+          error: `Department with id '${parsed.enfermera.departmentId}' not found.`,
+        });
+        return;
+      }
+      departmentId = parsed.enfermera.departmentId;
+    } else {
+      res.status(400).json({
+        error:
+          'You must provide either department (name) or departmentId for a nurse.',
+      });
+      return;
+    }
+
+    // Construir el objeto para el servicio con departmentId
+    const newNurseData = {
+      ...parsed,
+      enfermera: {
+        departmentId,
+      },
+    };
     const createdNurse = await usersService.createUser(newNurseData);
 
     res.status(201).json({
