@@ -43,6 +43,9 @@ interface BulkServiceResult {
 }
 
 class BulkService {
+  // Tamaño del lote para procesamiento paralelo
+  private readonly BATCH_SIZE = 10;
+
   async importUsers(file: Express.Multer.File): Promise<BulkServiceResult> {
     try {
       const rows = parseBuffer(file.buffer, file.originalname);
@@ -53,34 +56,63 @@ class BulkService {
         total: rows.length,
       };
 
-      for (let i = 0; i < rows.length; i++) {
-        const row = rows[i];
-        try {
-          if (!row) continue;
+      // Procesar en lotes para mejorar el rendimiento
+      for (let i = 0; i < rows.length; i += this.BATCH_SIZE) {
+        const batch = rows.slice(i, i + this.BATCH_SIZE);
 
-          // Transformar el row del CSV a la estructura esperada
-          const transformedRow = this.transformCsvRow(row);
-          const processResult = await this.processUserRow(transformedRow);
+        const batchPromises = batch.map(async (row, batchIndex) => {
+          const globalIndex = i + batchIndex;
+          try {
+            if (!row) return null;
 
-          if (processResult.success && processResult.user) {
-            results.successful.push({
-              index: i,
-              patient: processResult.user,
-            });
-          } else if (processResult.error) {
-            results.failed.push({
-              index: i,
+            // Transformar el row del CSV a la estructura esperada
+            const transformedRow = this.transformCsvRow(row);
+            const processResult = await this.processUserRow(transformedRow);
+
+            if (processResult.success && processResult.user) {
+              return {
+                type: 'success' as const,
+                index: globalIndex,
+                patient: processResult.user,
+              };
+            } else if (processResult.error) {
+              return {
+                type: 'failed' as const,
+                index: globalIndex,
+                row: row ?? {},
+                error: processResult.error,
+              };
+            }
+            return null;
+          } catch (err: unknown) {
+            const errorMessage = this.handleRowError(err);
+            return {
+              type: 'failed' as const,
+              index: globalIndex,
               row: row ?? {},
-              error: processResult.error,
+              error: errorMessage,
+            };
+          }
+        });
+
+        // Procesar el lote en paralelo
+        const batchResults = await Promise.all(batchPromises);
+
+        // Consolidar resultados
+        for (const result of batchResults) {
+          if (!result) continue;
+          if (result.type === 'success') {
+            results.successful.push({
+              index: result.index,
+              patient: result.patient,
+            });
+          } else {
+            results.failed.push({
+              index: result.index,
+              row: result.row,
+              error: result.error,
             });
           }
-        } catch (err: unknown) {
-          const errorMessage = this.handleRowError(err);
-          results.failed.push({
-            index: i,
-            row: row ?? {},
-            error: errorMessage,
-          });
         }
       }
 
@@ -222,22 +254,9 @@ class BulkService {
         data: userData as never,
       });
 
-      // Intentar enviar email de verificación
-      const emailSent = await this.sendVerificationEmail(
-        user,
-        verificationCode
-      );
-
-      if (!emailSent) {
-        // Si falla el envío del email, eliminar el usuario creado
-        await prisma.users.delete({
-          where: { id: user.id },
-        });
-        return {
-          success: false,
-          error: 'Error al enviar email de verificación',
-        };
-      }
+      // Enviar email de verificación de forma asíncrona (no bloqueante)
+      // No esperamos a que se complete para continuar con el siguiente usuario
+      this.sendVerificationEmailAsync(user, verificationCode);
 
       return {
         success: true,
@@ -251,25 +270,23 @@ class BulkService {
     }
   }
 
-  private async sendVerificationEmail(
+  /**
+   * Envía el email de verificación de forma asíncrona sin bloquear
+   */
+  private sendVerificationEmailAsync(
     user: Users,
     verificationCode: string
-  ): Promise<boolean> {
-    try {
-      await emailConfig.sendVerificationEmail?.(
-        user.email,
-        user.fullname,
-        verificationCode
-      );
-      return true;
-    } catch (error) {
-      console.warn(
-        '[BulkService] Could not send verification email for user:',
-        user.email,
-        error
-      );
-      return false;
-    }
+  ): void {
+    // Ejecutar en segundo plano sin await
+    emailConfig
+      .sendVerificationEmail?.(user.email, user.fullname, verificationCode)
+      .catch(error => {
+        console.warn(
+          '[BulkService] Could not send verification email for user:',
+          user.email,
+          error
+        );
+      });
   }
 
   private handleRowError(err: unknown): string {

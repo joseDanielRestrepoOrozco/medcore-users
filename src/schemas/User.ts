@@ -86,21 +86,23 @@ export const datosMedicoSchema = z
     { message: 'Debe proporcionar specialty (nombre) o specialtyId' }
   );
 
-// Datos específicos de Médicos - Para actualización (acepta specialtyId)
-export const datosMedicoUpdateSchema = z
-  .object({
-    specialtyId: z.string().optional(),
-    specialty: z.string().optional(),
-    license_number: z.string().optional(),
-  })
-  .refine(
-    data => {
-      // Al menos uno de los dos debe estar presente si se envía el objeto
-      if (data.specialtyId || data.specialty) return true;
-      return false;
-    },
-    { message: 'Debe proporcionar specialty o specialtyId' }
-  );
+// Datos específicos de Médicos - Para actualización (todos los campos opcionales)
+export const datosMedicoUpdateSchema = z.preprocess(
+  val => {
+    // Si el objeto está vacío o no tiene propiedades, retornar undefined
+    if (val && typeof val === 'object' && Object.keys(val).length === 0) {
+      return undefined;
+    }
+    return val;
+  },
+  z
+    .object({
+      specialtyId: z.string().optional(),
+      specialty: z.string().optional(),
+      license_number: z.string().optional(),
+    })
+    .optional()
+);
 
 // Datos específicos de Enfermeras - Para creación (acepta nombre o ID de departamento)
 export const datosEnfermeraSchema = z
@@ -116,20 +118,22 @@ export const datosEnfermeraSchema = z
     { message: 'Debe proporcionar department (nombre) o departmentId' }
   );
 
-// Datos específicos de Enfermeras - Para actualización (acepta departmentId)
-export const datosEnfermeraUpdateSchema = z
-  .object({
-    departmentId: z.string().optional(),
-    department: z.string().optional(),
-  })
-  .refine(
-    data => {
-      // Al menos uno de los dos debe estar presente si se envía el objeto
-      if (data.departmentId || data.department) return true;
-      return false;
-    },
-    { message: 'Debe proporcionar department o departmentId' }
-  );
+// Datos específicos de Enfermeras - Para actualización (todos los campos opcionales)
+export const datosEnfermeraUpdateSchema = z.preprocess(
+  val => {
+    // Si el objeto está vacío o no tiene propiedades, retornar undefined
+    if (val && typeof val === 'object' && Object.keys(val).length === 0) {
+      return undefined;
+    }
+    return val;
+  },
+  z
+    .object({
+      departmentId: z.string().optional(),
+      department: z.string().optional(),
+    })
+    .optional()
+);
 
 // Datos específicos de Pacientes
 export const datosPacienteSchema = z.object({

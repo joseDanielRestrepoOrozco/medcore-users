@@ -1,0 +1,16 @@
+email,current_password,fullname,documentNumber,role,date_of_birth,phone,gender,status,medico.specialty,medico.license_number,enfermera.department
+carlos.neurologia@medcore.test,Medico.1234,Carlos Ramírez Díaz,800000010,MEDICO,1985-03-15,3010000010,MASCULINO,ACTIVE,Neurología,CR-10015,
+maria.pediatria@medcore.test,Medico.1234,María Fernanda Torres,800000011,MEDICO,1990-11-22,3010000011,FEMENINO,ACTIVE,Pediatría,MF-10022,
+roberto.ortopedia@medcore.test,Medico.1234,Roberto Méndez Silva,800000012,MEDICO,1982-06-08,3010000012,MASCULINO,PENDING,Ortopedia,RM-10008,
+patricia.dermatologia@medcore.test,Medico.1234,Patricia Gutiérrez,800000013,MEDICO,1988-09-30,3010000013,FEMENINO,ACTIVE,Dermatología,PG-10030,
+diana.cirugia@medcore.test,Enfer.1234,Diana Carolina Ruiz,700000010,ENFERMERA,1992-02-14,3020000010,FEMENINO,ACTIVE,,,Cirugía
+luis.pediatria@medcore.test,Enfer.1234,Luis Alberto Pérez,700000011,ENFERMERA,1989-05-19,3020000011,MASCULINO,ACTIVE,,,Pediatría
+camila.uci@medcore.test,Enfer.1234,Camila Jiménez,700000012,ENFERMERA,1995-08-07,3020000012,FEMENINO,PENDING,,,UCI
+jose.geriatria@medcore.test,Enfer.1234,José Miguel Vargas,700000013,ENFERMERA,1991-12-03,3020000013,MASCULINO,ACTIVE,,,Geriatría
+andres.paciente@medcore.test,Paciente.1234,Andrés Felipe Morales,600000010,PACIENTE,1995-01-20,3030000010,MASCULINO,ACTIVE,,,
+lucia.paciente@medcore.test,Paciente.1234,Lucía Alejandra Gómez,600000011,PACIENTE,2002-07-15,3030000011,FEMENINO,ACTIVE,,,
+fernando.paciente@medcore.test,Paciente.1234,Fernando Javier Ospina,600000012,PACIENTE,1978-11-08,3030000012,MASCULINO,ACTIVE,,,
+gabriela.paciente@medcore.test,Paciente.1234,Gabriela Suárez León,600000013,PACIENTE,1989-04-25,3030000013,FEMENINO,PENDING,,,
+ricardo.paciente@medcore.test,Paciente.1234,Ricardo Enrique Molina,600000014,PACIENTE,2010-09-12,3030000014,MASCULINO,ACTIVE,,,
+valentina.paciente@medcore.test,Paciente.1234,Valentina Martínez Cruz,600000015,PACIENTE,1998-03-30,3030000015,FEMENINO,ACTIVE,,,
+miguel.paciente@medcore.test,Paciente.1234,Miguel Ángel Rojas,600000016,PACIENTE,1985-12-18,3030000016,MASCULINO,INACTIVE,,,
