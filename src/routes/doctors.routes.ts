@@ -7,7 +7,7 @@ const doctorsRouter = express.Router();
 // Define your doctors routes here
 doctorsRouter.get(
   '/',
-  requireRoles(['ADMINISTRADOR', 'MEDICO', 'ENFERMERA']),
+  requireRoles(['ADMINISTRADOR', 'MEDICO', 'ENFERMERA', 'PACIENTE']),
   doctorsController.getAllDoctors
 );
 
@@ -19,7 +19,7 @@ doctorsRouter.post(
 
 doctorsRouter.get(
   '/:id',
-  requireRoles(['ADMINISTRADOR', 'MEDICO', 'ENFERMERA']),
+  requireRoles(['ADMINISTRADOR', 'MEDICO', 'ENFERMERA', 'PACIENTE']),
   doctorsController.getDoctorById
 );
 
@@ -29,7 +29,8 @@ doctorsRouter.put(
   doctorsController.updateDoctor
 );
 
-doctorsRouter.patch('/status/:id',
+doctorsRouter.patch(
+  '/status/:id',
   requireRoles(['ADMINISTRADOR']),
   doctorsController.updateStatus
 );
