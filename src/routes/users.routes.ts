@@ -18,7 +18,7 @@ usersRouter.get(
 
 usersRouter.get(
   '/by-specialty',
-  requireRoles(['ADMINISTRADOR']),
+  requireRoles(['ADMINISTRADOR', 'PACIENTE']),
   usersController.getUsersBySpecialty
 );
 
