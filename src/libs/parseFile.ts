@@ -9,6 +9,7 @@ export function parseBuffer(
   if (!ext) throw new Error('No extension');
 
   if (ext === 'csv') {
+<<<<<<< HEAD
     const decode = (buf: Buffer): string => {
       // UTF-16 LE BOM
       if (buf.length >= 2 && buf[0] === 0xff && buf[1] === 0xfe) return buf.toString('utf16le');
@@ -61,6 +62,15 @@ export function parseBuffer(
     // Fallback: naive split by comma
     const rec = tryParse(str, ',');
     return rec;
+=======
+    const str = buffer.toString('utf-8');
+    const records = csvParse(str, {
+      columns: true,
+      skip_empty_lines: true,
+      relax_column_count: true, // Permitir filas con diferente número de columnas
+    });
+    return records as Array<Record<string, unknown>>;
+>>>>>>> dev
   }
 
   if (ext === 'xlsx' || ext === 'xls') {

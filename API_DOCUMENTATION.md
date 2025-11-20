@@ -1137,3 +1137,173 @@ Updates a nurse's status (PENDING, ACTIVE, INACTIVE).
 9. **Route Order:**
    - Specific routes (`/users/doctors`, `/users/nurses`) are registered before generic `/users` routes
    - This prevents path conflicts and ensures correct routing
+
+---
+
+# Internal Endpoints
+
+These endpoints are designed for internal microservice-to-microservice communication and require a special authentication token.
+
+## Authentication
+
+All internal endpoints require the `X-Internal-Token` header matching the `INTERNAL_SERVICE_TOKEN` environment variable.
+
+**Headers:**
+
+```
+X-Internal-Token: <INTERNAL_SERVICE_TOKEN>
+```
+
+**Error Response (401):**
+
+```json
+{
+  "error": "Unauthorized"
+}
+```
+
+---
+
+## 1. Get User By ID (Internal)
+
+Retrieves complete user information by ID without role restrictions.
+
+**Endpoint:** `GET /internal/users/:id`
+
+**Auth Required:** Internal Token
+
+**URL Parameters:**
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| id | string | Yes | User MongoDB ObjectId |
+
+**Example Request:**
+
+```bash
+curl -X GET "http://localhost:3000/api/v1/internal/users/507f1f77bcf86cd799439011" \
+  -H "X-Internal-Token: your-internal-token"
+```
+
+**Success Response (200):**
+
+```json
+{
+  "id": "507f1f77bcf86cd799439011",
+  "email": "doctor@example.com",
+  "fullname": "Dr. Juan Pérez",
+  "role": "MEDICO",
+  "documentNumber": "12345678",
+  "date_of_birth": "1980-05-15T00:00:00.000Z",
+  "age": 43,
+  "phone": "+1234567890",
+  "gender": "M",
+  "status": "ACTIVE",
+  "medico": {
+    "specialtyId": "507f1f77bcf86cd799439012",
+    "license_number": "MED-12345"
+  },
+  "createdAt": "2024-01-01T00:00:00.000Z",
+  "updatedAt": "2024-01-01T00:00:00.000Z"
+}
+```
+
+---
+
+## 2. Get Doctor Name By ID (Internal)
+
+Retrieves minimal doctor information (id, fullname, specialtyId) for display purposes. This endpoint is specifically designed for other microservices that need to display doctor names in their responses, such as the appointments service.
+
+**Endpoint:** `GET /internal/doctors/:id/name`
+
+**Auth Required:** Internal Token
+
+**URL Parameters:**
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| id | string | Yes | Doctor MongoDB ObjectId |
+
+**Example Request:**
+
+```bash
+curl -X GET "http://localhost:3000/api/v1/internal/doctors/507f1f77bcf86cd799439011/name" \
+  -H "X-Internal-Token: your-internal-token"
+```
+
+**Success Response (200):**
+
+```json
+{
+  "id": "507f1f77bcf86cd799439011",
+  "fullname": "Dr. Juan Pérez",
+  "specialtyId": "507f1f77bcf86cd799439012"
+}
+```
+
+**Error Responses:**
+
+**400 - Missing ID:**
+
+```json
+{
+  "error": "Doctor ID is required"
+}
+```
+
+**404 - Not Found or Not a Doctor:**
+
+```json
+{
+  "error": "Doctor not found"
+}
+```
+
+**Use Case:**
+This endpoint is ideal for microservices like `medcore-appointment` that return lists of appointments with only the doctor's ID. They can call this endpoint to enrich their responses with the doctor's name without exposing sensitive information or requiring full user access.
+
+**Example Usage in Appointment Service:**
+
+```javascript
+// Appointment response includes doctorId
+const appointment = {
+  id: 'apt123',
+  patientId: 'patient123',
+  doctorId: '507f1f77bcf86cd799439011',
+  date: '2024-03-15T10:00:00Z',
+};
+
+// Call internal endpoint to get doctor name
+const doctorInfo = await fetch(
+  `http://medcore-users:3000/api/v1/internal/doctors/${appointment.doctorId}/name`,
+  {
+    headers: {
+      'X-Internal-Token': process.env.INTERNAL_SERVICE_TOKEN,
+    },
+  }
+);
+
+// Enrich response
+const enrichedAppointment = {
+  ...appointment,
+  doctorName: doctorInfo.fullname,
+};
+```
+
+---
+
+## Internal Routes Summary
+
+| Method | Endpoint                     | Auth           | Description                   |
+| ------ | ---------------------------- | -------------- | ----------------------------- |
+| GET    | `/internal/users/:id`        | Internal Token | Get complete user by ID       |
+| GET    | `/internal/doctors/:id/name` | Internal Token | Get doctor name and specialty |
+
+**Security Notes:**
+
+1. Never expose the `INTERNAL_SERVICE_TOKEN` in client-side code
+2. Only use internal endpoints for server-to-server communication
+3. Internal endpoints bypass normal role-based access control
+4. Use internal endpoints only when necessary for microservice architecture
+
+```
+
+```

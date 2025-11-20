@@ -1,13 +1,15 @@
-import { type NextFunction, type Request, type Response } from 'express';
-import { PrismaClient, type Users } from '@prisma/client';
-import emailConfig, { generateVerificationCode } from '../config/emailConfig.js';
-import { parseBuffer } from '../libs/parseFile.js';
-import z from 'zod';
-import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
-import { userSchema, validateAge } from '../schemas/User.js';
-import calculateAge from '../libs/calculateAge.js';
-import bcrypt from 'bcrypt';
-import { PATIENTS_SERVICE_URL } from '../libs/config.js';
+import { type NextFunction, type Request, type Response } from "express";
+import { PrismaClient, type Users } from "@prisma/client";
+import emailConfig, {
+  generateVerificationCode,
+} from "../config/emailConfig.js";
+import { parseBuffer } from "../libs/parseFile.js";
+import z from "zod";
+import { PrismaClientKnownRequestError } from "@prisma/client/runtime/library";
+import { userSchema, validateAge } from "../schemas/User.js";
+import calculateAge from "../libs/calculateAge.js";
+import bcrypt from "bcrypt";
+import { PATIENTS_SERVICE_URL } from "../libs/config.js";
 
 const prisma = new PrismaClient();
 
@@ -19,11 +21,11 @@ async function bulkImportPatients(
   try {
     const file = req.file as Express.Multer.File | undefined;
     if (!file) {
-      res.status(400).json({ error: 'Archivo requerido' });
+      res.status(400).json({ error: "Archivo requerido" });
       return;
     }
     // ALERT: inicio de procesamiento
-    console.warn('[ALERT][BULK_USERS] start', {
+    console.warn("[ALERT][BULK_USERS] start", {
       name: file.originalname,
       type: file.mimetype,
       size: file.size,
@@ -31,7 +33,7 @@ async function bulkImportPatients(
 
     const rows = parseBuffer(file.buffer, file.originalname);
     const firstRow = rows[0] || {};
-    console.warn('[ALERT][BULK_USERS] parsed', {
+    console.warn("[ALERT][BULK_USERS] parsed", {
       rows: rows.length,
       headers: Object.keys(firstRow),
     });
@@ -45,7 +47,8 @@ async function bulkImportPatients(
       }>,
       total: rows.length,
     };
-    const patientRows: Array<{ idx: number; row: Record<string, unknown> }> = [];
+    const patientRows: Array<{ idx: number; row: Record<string, unknown> }> =
+      [];
     // Control de duplicados dentro del mismo archivo (case-insensitive)
     const seen = new Set<string>();
 
@@ -53,44 +56,44 @@ async function bulkImportPatients(
       const out: Record<string, unknown> = {};
       // normaliza claves comunes y alias
       const remap: Record<string, string> = {
-        currentPassword: 'current_password',
-        password: 'current_password',
-        dateOfBirth: 'date_of_birth',
-        birthDate: 'date_of_birth',
-        fecha_nacimiento: 'date_of_birth',
-        telefono: 'phone',
-        licencia: 'license_number',
-        licencia_medica: 'license_number',
-        especialidad: 'specialization',
-        departamento: 'department',
+        currentPassword: "current_password",
+        password: "current_password",
+        dateOfBirth: "date_of_birth",
+        birthDate: "date_of_birth",
+        fecha_nacimiento: "date_of_birth",
+        telefono: "phone",
+        licencia: "license_number",
+        licencia_medica: "license_number",
+        especialidad: "specialization",
+        departamento: "department",
       };
       Object.entries(row).forEach(([k, v]) => {
         const key = remap[k] ?? k.trim();
-        out[key] = typeof v === 'string' ? v.trim() : v;
+        out[key] = typeof v === "string" ? v.trim() : v;
       });
       // role/status en mayúsculas y aceptar variantes en español/inglés
-      const role = String(out.role || '').toUpperCase();
+      const role = String(out.role || "").toUpperCase();
       const roleMap: Record<string, string> = {
-        DOCTOR: 'MEDICO',
-        MÉDICO: 'MEDICO',
-        MEDICO: 'MEDICO',
-        NURSE: 'ENFERMERA',
-        ENFERMERA: 'ENFERMERA',
-        PATIENT: 'PACIENTE',
-        PACIENTE: 'PACIENTE',
-        ADMIN: 'ADMINISTRADOR',
-        ADMINISTRADOR: 'ADMINISTRADOR',
+        DOCTOR: "MEDICO",
+        MÉDICO: "MEDICO",
+        MEDICO: "MEDICO",
+        NURSE: "ENFERMERA",
+        ENFERMERA: "ENFERMERA",
+        PATIENT: "PACIENTE",
+        PACIENTE: "PACIENTE",
+        ADMIN: "ADMINISTRADOR",
+        ADMINISTRADOR: "ADMINISTRADOR",
       };
       if (role) out.role = roleMap[role] ?? role;
 
-      const status = String(out.status || '').toUpperCase();
+      const status = String(out.status || "").toUpperCase();
       const statusMap: Record<string, string> = {
-        ACTIVO: 'ACTIVE',
-        INACTIVO: 'INACTIVE',
-        PENDIENTE: 'PENDING',
-        ACTIVE: 'ACTIVE',
-        INACTIVE: 'INACTIVE',
-        PENDING: 'PENDING',
+        ACTIVO: "ACTIVE",
+        INACTIVO: "INACTIVE",
+        PENDIENTE: "PENDING",
+        ACTIVE: "ACTIVE",
+        INACTIVE: "INACTIVE",
+        PENDING: "PENDING",
       };
       if (status) out.status = statusMap[status] ?? status;
 
@@ -103,24 +106,30 @@ async function bulkImportPatients(
         if (!row) continue;
         // omitir filas completamente vacías (p. ej., líneas en blanco del CSV)
         const allEmpty = Object.values(row as Record<string, unknown>)
-          .map((v) => (typeof v === 'string' ? v.trim() : v))
-          .every((v) => v === '' || v === null || v === undefined);
+          .map((v) => (typeof v === "string" ? v.trim() : v))
+          .every((v) => v === "" || v === null || v === undefined);
         if (allEmpty) continue;
         const norm = normalize(row as Record<string, unknown>);
-        const emailNorm = String(norm.email || '').trim().toLowerCase();
+        const emailNorm = String(norm.email || "")
+          .trim()
+          .toLowerCase();
         if (!emailNorm) {
-          results.failed.push({ index: i, row, error: 'Email requerido' });
+          results.failed.push({ index: i, row, error: "Email requerido" });
           continue;
         }
         if (seen.has(emailNorm)) {
-          results.failed.push({ index: i, row, error: 'Duplicado en archivo (email repetido)' });
+          results.failed.push({
+            index: i,
+            row,
+            error: "Duplicado en archivo (email repetido)",
+          });
           continue;
         }
         seen.add(emailNorm);
         const data = userSchema.parse(norm);
 
         // Desviar pacientes al servicio de pacientes
-        if (String(data.role).toUpperCase() === 'PACIENTE') {
+        if (String(data.role).toUpperCase() === "PACIENTE") {
           patientRows.push({ idx: i, row: norm });
           continue;
         }
@@ -157,7 +166,10 @@ async function bulkImportPatients(
           await prisma.users.delete({
             where: { id: patient.id },
           });
-          console.warn('[ALERT][BULK_USERS] email send failed - user reverted', { email: patient.email });
+          console.warn(
+            "[ALERT][BULK_USERS] email send failed - user reverted",
+            { email: patient.email }
+          );
         }
 
         results.successful.push({ index: i, patient });
@@ -173,23 +185,29 @@ async function bulkImportPatients(
           results.failed.push({
             index: i,
             row: safeRow,
-            error: allErrors.join('; '),
+            error: allErrors.join("; "),
           });
-          console.warn('[ALERT][BULK_USERS] row failed (zod)', { index: i, error: allErrors.join('; ') });
+          console.warn("[ALERT][BULK_USERS] row failed (zod)", {
+            index: i,
+            error: allErrors.join("; "),
+          });
         } else if (
           err instanceof PrismaClientKnownRequestError &&
-          err.code === 'P2002'
+          err.code === "P2002"
         ) {
           results.failed.push({
             index: i,
             row: safeRow,
-            error: 'Email ya registrado',
+            error: "Email ya registrado",
           });
-          console.warn('[ALERT][BULK_USERS] row failed (unique)', { index: i });
+          console.warn("[ALERT][BULK_USERS] row failed (unique)", { index: i });
         } else {
           const message = err instanceof Error ? err.message : String(err);
           results.failed.push({ index: i, row: safeRow, error: message });
-          console.warn('[ALERT][BULK_USERS] row failed (error)', { index: i, error: message });
+          console.warn("[ALERT][BULK_USERS] row failed (error)", {
+            index: i,
+            error: message,
+          });
         }
       }
     }
@@ -199,12 +217,12 @@ async function bulkImportPatients(
     if (patientRows.length) {
       try {
         const mapped = patientRows.map(({ row }) => {
-          const fullname = String(row.fullname || '')
-            .replace(/\s+/g, ' ')
+          const fullname = String(row.fullname || "")
+            .replace(/\s+/g, " ")
             .trim();
-        const parts = fullname.split(' ');
-          const firstName = parts.slice(0, -1).join(' ') || fullname;
-          const lastName = parts.slice(-1).join(' ') || '';
+          const parts = fullname.split(" ");
+          const firstName = parts.slice(0, -1).join(" ") || fullname;
+          const lastName = parts.slice(-1).join(" ") || "";
           return {
             firstName,
             lastName,
@@ -214,11 +232,14 @@ async function bulkImportPatients(
             genero: row.gender || row.genero,
           } as Record<string, unknown>;
         });
-        const resp = await fetch(`${PATIENTS_SERVICE_URL}/api/v1/patients/bulk-import`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ patients: mapped }),
-        });
+        const resp = await fetch(
+          `${PATIENTS_SERVICE_URL}/api/v1/patients/bulk-import`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ patients: mapped }),
+          }
+        );
         const data = await resp.json().catch(() => ({}));
         const ok = Number(data?.summary?.successful || 0);
         const fail = Number(data?.summary?.failed || 0);
@@ -227,22 +248,26 @@ async function bulkImportPatients(
         // Ajustar totales; no agregamos detalle de filas fallidas del otro servicio
         results.total = rows.length; // ya
         // successful y failed de users ya reflejados arriba; añadimos al summary final via log
-        console.warn('[ALERT][BULK_USERS] patients forwarded', { total: patientRows.length, ok, fail });
+        console.warn("[ALERT][BULK_USERS] patients forwarded", {
+          total: patientRows.length,
+          ok,
+          fail,
+        });
       } catch (e) {
-        console.error('[ALERT][BULK_USERS] patients forward error', e);
+        console.error("[ALERT][BULK_USERS] patients forward error", e);
       }
     }
 
     const totalSuccess = results.successful.length + patientOk;
     const totalFailed = results.failed.length + patientFail;
-    console.warn('[ALERT][BULK_USERS] summary', {
+    console.warn("[ALERT][BULK_USERS] summary", {
       total: results.total,
       successful: totalSuccess,
       failed: totalFailed,
     });
 
     res.status(200).json({
-      message: 'Importación completada',
+      message: "Importación completada",
       summary: {
         total: results.total,
         successful: totalSuccess,
@@ -251,7 +276,7 @@ async function bulkImportPatients(
       results,
     });
   } catch (error: unknown) {
-    console.error('[ALERT][BULK_USERS] unhandled', error);
+    console.error("[ALERT][BULK_USERS] unhandled", error);
     next(error);
   }
 }

@@ -2,10 +2,12 @@ import { type Request, type Response, type NextFunction } from 'express';
 import {
   medicoSchema,
   medicoUpdateSchema,
-  statusSchema,
   getDoctorsFiltersSchema,
 } from '../schemas/User.js';
 import * as usersService from '../services/users.service.js';
+import { findSpecialtyByName } from '../services/specialty.service.js';
+const { PrismaClient } = await import('@prisma/client');
+const prisma = new PrismaClient();
 
 const getAllDoctors = async (
   req: Request,
@@ -14,7 +16,7 @@ const getAllDoctors = async (
 ) => {
   try {
     const filters = getDoctorsFiltersSchema.parse(req.query);
-    
+
     const result = await usersService.getAllUsers({
       role: 'MEDICO',
       status: filters.status,
@@ -34,9 +36,45 @@ const createDoctor = async (
   next: NextFunction
 ) => {
   try {
-    const newDoctorData = medicoSchema.parse({ ...req.body, role: 'MEDICO' });
-    const createdDoctor = await usersService.createUser(newDoctorData);
+    const parsed = medicoSchema.parse({ ...req.body, role: 'MEDICO' });
+    let specialtyId: string | null | undefined;
 
+    // verificar la existencia de la especialidad
+    if (parsed.medico.specialty) {
+      specialtyId = await findSpecialtyByName(parsed.medico.specialty);
+      if (!specialtyId) {
+        res
+          .status(404)
+          .json({ error: `Specialty '${parsed.medico.specialty}' not found.` });
+        return;
+      }
+    } else if (parsed.medico.specialtyId) {
+      const found = await prisma.specialty.findUnique({
+        where: { id: parsed.medico.specialtyId },
+      });
+      if (!found) {
+        res.status(404).json({
+          error: `Specialty with id '${parsed.medico.specialtyId}' not found.`,
+        });
+        return;
+      }
+      specialtyId = parsed.medico.specialtyId;
+    } else {
+      res.status(400).json({
+        error:
+          'You must provide either specialty (name) or specialtyId for a doctor.',
+      });
+      return;
+    }
+    // Construir el objeto para el servicio con specialtyId
+    const newDoctorData = {
+      ...parsed,
+      medico: {
+        specialtyId,
+        license_number: parsed.medico.license_number,
+      },
+    };
+    const createdDoctor = await usersService.createUser(newDoctorData);
     res.status(201).json({
       ...createdDoctor,
       message: 'Doctor creado. Código enviado al correo.',
@@ -121,6 +159,14 @@ const updateDoctor = async (
         res.status(404).json({ error: 'Doctor not found' });
         return;
       }
+      // Manejar error de especialidad no encontrada
+      if (
+        error.message.includes('Specialty') &&
+        error.message.includes('not found')
+      ) {
+        res.status(404).json({ error: error.message });
+        return;
+      }
     }
     next(error);
   }
@@ -139,14 +185,23 @@ const updateStatus = async (
       return;
     }
 
-    const status = statusSchema.parse(req.body);
+    // Obtener el doctor actual
+    const currentDoctor = await usersService.getUserById(id);
 
+    if (!currentDoctor || currentDoctor.role !== 'MEDICO') {
+      res.status(404).json({ error: 'Doctor not found' });
+      return;
+    }
+
+    // Toggle del estado: ACTIVE <-> INACTIVE
+    const newStatus = currentDoctor.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
+
+    // Actualizar con el nuevo estado
     const updatedDoctor = await usersService.updateUser(
       id,
-      status,
+      { status: newStatus },
       'MEDICO'
     );
-    
 
     if (!updatedDoctor) {
       res.status(404).json({ error: 'Doctor not found' });
@@ -155,7 +210,7 @@ const updateStatus = async (
 
     res.status(200).json({
       updatedDoctor,
-      message: 'Doctor status updated successfully',
+      message: `Doctor status updated to ${newStatus}`,
     });
   } catch (error) {
     if (error instanceof Error) {

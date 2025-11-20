@@ -1,0 +1,21 @@
+email,current_password,fullname,documentNumber,role,date_of_birth,phone,gender,status,medico.specialty,medico.license_number,enfermera.department
+sebastian.ginecologia@medcore.test,Medico.1234,Sebastián González Vargas,800000020,MEDICO,1983-04-18,3010000020,MASCULINO,ACTIVE,Ginecología,SG-20018,
+natalia.oftalmologia@medcore.test,Medico.1234,Natalia Andrea Salazar,800000021,MEDICO,1991-08-25,3010000021,FEMENINO,ACTIVE,Oftalmología,NA-20025,
+alejandro.urologia@medcore.test,Medico.1234,Alejandro Martínez Ríos,800000022,MEDICO,1986-10-12,3010000022,MASCULINO,PENDING,Urología,AM-20012,
+isabella.psiquiatria@medcore.test,Medico.1234,Isabella Rojas Henao,800000023,MEDICO,1989-02-28,3010000023,FEMENINO,ACTIVE,Psiquiatría,IR-20028,
+david.gastro@medcore.test,Medico.1234,David Esteban Castro,800000024,MEDICO,1984-07-05,3010000024,MASCULINO,ACTIVE,Gastroenterología,DE-20005,
+carolina.medicina@medcore.test,Enfer.1234,Carolina Moreno López,700000020,ENFERMERA,1993-06-14,3020000020,FEMENINO,ACTIVE,,,Medicina Interna
+daniel.emergencias@medcore.test,Enfer.1234,Daniel Felipe Arias,700000021,ENFERMERA,1990-11-09,3020000021,MASCULINO,ACTIVE,,,Emergencias
+sofia.neonatos@medcore.test,Enfer.1234,Sofía Valentina Cruz,700000022,ENFERMERA,1994-01-22,3020000022,FEMENINO,PENDING,,,Neonatología
+hector.ortopedia@medcore.test,Enfer.1234,Héctor Javier Parra,700000023,ENFERMERA,1987-09-16,3020000023,MASCULINO,ACTIVE,,,Ortopedia
+paula.oncologia@medcore.test,Enfer.1234,Paula Andrea Delgado,700000024,ENFERMERA,1992-03-28,3020000024,FEMENINO,ACTIVE,,,Oncología
+santiago.paciente@medcore.test,Paciente.1234,Santiago Alonso Medina,600000020,PACIENTE,1975-05-10,3030000020,MASCULINO,ACTIVE,,,
+mariana.paciente@medcore.test,Paciente.1234,Mariana Isabel Ortiz,600000021,PACIENTE,2008-12-03,3030000021,FEMENINO,ACTIVE,,,
+nicolas.paciente@medcore.test,Paciente.1234,Nicolás Eduardo Hernández,600000022,PACIENTE,1992-08-17,3030000022,MASCULINO,ACTIVE,,,
+catalina.paciente@medcore.test,Paciente.1234,Catalina Victoria Jiménez,600000023,PACIENTE,1987-02-25,3030000023,FEMENINO,PENDING,,,
+juan.paciente@medcore.test,Paciente.1234,Juan Sebastián Villegas,600000024,PACIENTE,2005-10-08,3030000024,MASCULINO,ACTIVE,,,
+ana.paciente@medcore.test,Paciente.1234,Ana María Córdoba,600000025,PACIENTE,1996-06-20,3030000025,FEMENINO,ACTIVE,,,
+felipe.paciente@medcore.test,Paciente.1234,Felipe Andrés Zapata,600000026,PACIENTE,1981-11-14,3030000026,MASCULINO,INACTIVE,,,
+laura.paciente@medcore.test,Paciente.1234,Laura Cristina Vélez,600000027,PACIENTE,1999-04-07,3030000027,FEMENINO,ACTIVE,,,
+carlos.paciente@medcore.test,Paciente.1234,Carlos Alberto Ramírez,600000028,PACIENTE,1973-09-22,3030000028,MASCULINO,ACTIVE,,,
+juliana.paciente@medcore.test,Paciente.1234,Juliana Paola Montoya,600000029,PACIENTE,2001-07-11,3030000029,FEMENINO,ACTIVE,,,

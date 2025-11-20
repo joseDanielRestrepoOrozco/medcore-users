@@ -1,6 +1,7 @@
-import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import { type NextFunction, type Request, type Response } from 'express';
 import { ZodError } from 'zod';
+import { Prisma } from '@prisma/client';
+import { z } from 'zod';
 
 const errorHandler = (
   error: unknown,
@@ -8,19 +9,23 @@ const errorHandler = (
   res: Response,
   _next: NextFunction
 ) => {
-  if (error instanceof PrismaClientKnownRequestError) {
-    console.log('aquiiiiii');
-    console.error('[Prisma Error]', error);
+  if (error instanceof Prisma.PrismaClientKnownRequestError) {
+    console.error('[Prisma Error]', error.message, error);
     if (error.code === 'P2023') {
       res.status(400).json({ error: 'ID no válido' });
+      return;
+    } else if (error.code === 'P2002') {
+      res.status(400).json({
+        error: 'valor para campo unico ya está en uso.',
+      });
       return;
     }
     res.status(500).json({ error: 'Error en la base de datos' });
     return;
   } else if (error instanceof ZodError) {
-    const first = error.issues[0]?.message || 'Datos inválidos';
-    const flattened = error.flatten();
-    res.status(400).json({ error: first, details: flattened.fieldErrors });
+    console.log(error.message);
+    const flattened = z.treeifyError(error);
+    res.status(400).json(flattened);
     return;
   }
 

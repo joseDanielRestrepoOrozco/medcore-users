@@ -2,11 +2,14 @@ import { type NextFunction, type Request, type Response } from 'express';
 import {
   getUsersFiltersSchema,
   getUsersByRoleFiltersSchema,
-  pacienteSchema,
-  pacienteUpdateSchema,
   getSpecialtyFiltersSchema,
+  userSchema,
 } from '../schemas/User.js';
 import * as usersService from '../services/users.service.js';
+import {
+  findSpecialtyByName,
+  findDepartmentByName,
+} from '../services/specialty.service.js';
 
 /**
  * Obtener todos los usuarios con filtros y paginación
@@ -44,42 +47,6 @@ const getById = async (
 
     res.status(200).json(user);
   } catch (error: unknown) {
-    next(error);
-  }
-};
-
-/**
- * Actualizar un usuario
- */
-const update = async (
-  req: Request,
-  res: Response,
-  next: NextFunction
-): Promise<void> => {
-  try {
-    const { id } = req.params as { id: string };
-    const updateData = pacienteUpdateSchema.parse(req.body);
-
-    const updatedUser = await usersService.updateUser(id, updateData);
-
-    if (!updatedUser) {
-      res.status(404).json({ error: 'User not found' });
-      return;
-    }
-
-    res.status(200).json({
-      message: 'User updated successfully',
-      user: updatedUser,
-    });
-  } catch (error: unknown) {
-    console.error('Error updating user:', error);
-    // type of error checking can be added here if needed
-    if (error instanceof Error) {
-      if (error.message === 'User not found') {
-        res.status(404).json({ error: 'User not found' });
-        return;
-      }
-    }
     next(error);
   }
 };
@@ -125,13 +92,16 @@ const getStats = async (
   }
 };
 
-// creara un nuevo usuario por defecto paciente
+/**
+ * Crear un nuevo usuario (genérico para todos los roles)
+ */
 const create = async (
   req: Request,
   res: Response,
   next: NextFunction
 ): Promise<void> => {
   try {
+<<<<<<< HEAD
     // Adaptar nombres alternativos del frontend: currentPassword, dateOfBirth, birthDate
     const b = req.body as Record<string, unknown>;
     const adapted = {
@@ -142,6 +112,99 @@ const create = async (
     };
     const newUser = pacienteSchema.parse(adapted);
     const createdUser = await usersService.createUser(newUser);
+=======
+    // Parsear y validar según el rol
+    const userData = userSchema.parse(req.body);
+
+    // Preparar datos transformados para el servicio
+    const transformedData: {
+      email: string;
+      fullname: string;
+      documentNumber: string;
+      current_password: string;
+      date_of_birth: Date;
+      role: 'MEDICO' | 'ENFERMERA' | 'PACIENTE' | 'ADMINISTRADOR';
+      gender?: string;
+      phone?: string;
+      medico?: { specialtyId: string; license_number: string };
+      enfermera?: { departmentId: string };
+      paciente?: { address?: string };
+      administrador?: { nivelAcceso?: string; departamentoAsignado?: string };
+    } = {
+      email: userData.email,
+      fullname: userData.fullname,
+      documentNumber: userData.documentNumber,
+      current_password: userData.current_password,
+      date_of_birth: userData.date_of_birth,
+      role: userData.role,
+      gender: userData.gender,
+      phone: userData.phone,
+    };
+
+    // Transformaciones específicas por rol
+    if (userData.role === 'MEDICO') {
+      const medicoData = userData.medico;
+
+      // Si viene specialty (nombre), convertir a specialtyId
+      if ('specialty' in medicoData && medicoData.specialty) {
+        const specialtyId = await findSpecialtyByName(medicoData.specialty);
+        if (!specialtyId) {
+          res.status(400).json({
+            error: 'Invalid specialty',
+            message: `Specialty '${medicoData.specialty}' not found. Please verify the specialty name.`,
+          });
+          return;
+        }
+        transformedData.medico = {
+          specialtyId,
+          license_number: medicoData.license_number,
+        };
+      } else {
+        // Si no viene specialty, asumimos que viene specialtyId (el schema ya lo valida)
+        transformedData.medico = {
+          specialtyId: (
+            medicoData as { specialtyId: string; license_number: string }
+          ).specialtyId,
+          license_number: medicoData.license_number,
+        };
+      }
+    } else if (userData.role === 'ENFERMERA') {
+      const enfermeraData = userData.enfermera;
+
+      // Si viene department (nombre), convertir a departmentId
+      if ('department' in enfermeraData && enfermeraData.department) {
+        const departmentId = await findDepartmentByName(
+          enfermeraData.department
+        );
+        if (!departmentId) {
+          res.status(400).json({
+            error: 'Invalid department',
+            message: `Department '${enfermeraData.department}' not found. Please verify the department name.`,
+          });
+          return;
+        }
+        transformedData.enfermera = {
+          departmentId,
+        };
+      } else {
+        // Si no viene department, asumimos que viene departmentId (el schema ya lo valida)
+        transformedData.enfermera = {
+          departmentId: (enfermeraData as { departmentId: string })
+            .departmentId,
+        };
+      }
+    } else if (userData.role === 'PACIENTE') {
+      if (userData.paciente) {
+        transformedData.paciente = userData.paciente;
+      }
+    } else if (userData.role === 'ADMINISTRADOR') {
+      if (userData.administrador) {
+        transformedData.administrador = userData.administrador;
+      }
+    }
+
+    const createdUser = await usersService.createUser(transformedData);
+>>>>>>> dev
 
     res.status(201).json({
       ...createdUser,
@@ -153,12 +216,16 @@ const create = async (
         res.status(400).json({ error: 'User already exists' });
         return;
       }
+      if (error.message === 'Document number already exists') {
+        res.status(400).json({ error: 'Document number already exists' });
+        return;
+      }
       if (error.message === 'Error sending verification email') {
         res.status(500).json({ error: 'Error sending verification email' });
         return;
       }
     }
-    console.error('[signup] unhandled error', error);
+    console.error('[create] unhandled error', error);
     next(error);
   }
 };
@@ -187,7 +254,7 @@ const getUsersBySpecialty = async (
     const users = await usersService.getAllUsers({
       role: 'MEDICO',
       status: filters.status,
-      specialization: filters.specialty,
+      specialtyId: filters.specialtyId,
       page: filters.page,
       limit: filters.limit,
     });
@@ -200,7 +267,6 @@ const getUsersBySpecialty = async (
 export default {
   getAll,
   getById,
-  update,
   remove,
   getStats,
   create,
